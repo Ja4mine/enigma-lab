@@ -1,6 +1,11 @@
 # Third-party notices
 
-The production app uses React (MIT), Three.js (MIT), React Three Fiber (MIT), Drei (MIT), and Lucide (ISC). Their complete dependency license files are distributed with the installed packages.
+The production app uses React and React DOM (MIT) and Three.js (MIT), including the Three.js addons OrbitControls, RoomEnvironment, RoundedBoxGeometry and BufferGeometryUtils. Their complete license files are distributed with the installed packages.
+
+## Fonts
+
+- **Barlow, Barlow Condensed, Barlow Semi Condensed** — Copyright 2017 The Barlow Project Authors, SIL Open Font License 1.1. Latin subsets in `src/assets/fonts/`; license text in `src/assets/fonts/OFL-Barlow.txt`.
+- **Lab Mono** — a Latin subset of IBM Plex Mono, Copyright © 2017 IBM Corp., SIL Open Font License 1.1. Because subsetting creates a Modified Version and “Plex” is a Reserved Font Name, the subset is renamed “Lab Mono”. License text in `src/assets/fonts/OFL-IBMPlexMono.txt`.
 
 No source code or visual assets from cassette or RhineLabUI are included in this implementation. They are credited as visual and interaction references in RESEARCH.md.
 
