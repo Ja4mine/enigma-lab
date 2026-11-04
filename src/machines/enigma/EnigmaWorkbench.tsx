@@ -372,8 +372,8 @@ export default function EnigmaWorkbench({ stage, onCrumbs }: { stage: Stage; onC
               : "The rotor set is lifted and spread, cores shown as x-ray. Press a key: first the rotors step, then the current goes out (amber) and back (teal).",
           }
         : {
-            title: zh ? "置换的叠加" : "Permutations, stacked",
-            text: zh ? "右侧逐层推导每次击键的置换；模型显示最近一次电流。" : "The panel derives each keystroke's permutation layer by layer; the model keeps the last current path.",
+            title: zh ? "为什么它长成这样" : "Why it looks like this",
+            text: zh ? "右侧逐个部件说明它解决了什么问题，又留下了什么破绽。" : "The panel takes each part in turn: what problem it solved, and what weakness it left.",
           };
 
   const rotorSpecs = (() => {

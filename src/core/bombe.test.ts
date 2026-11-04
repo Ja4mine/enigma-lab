@@ -7,6 +7,7 @@ import {
   WHEEL_ORDERS,
   analyseStop,
   buildMenu,
+  chase,
   coreAt,
   coreOf,
   crashes,
@@ -219,5 +220,24 @@ describe("bombe", () => {
       expect(fastEnigma(s.key, s.ciphertext)).toBe(s.plaintext);
       expect(crashes(s.ciphertext, s.crib, s.cribOffset)).toEqual([]);
     }
+  });
+
+  it("hand-following the menu: true guess never clashes, wrong guesses do", () => {
+    const menu = buildMenu(scenario.crib, segment);
+    const spec: BombeSpec = { rotors: scenario.key.rotors, reflector: "B", menu, diagonal: false, inputWire: 0 };
+    const core = coreOf({
+      positions: encryptText(scenario.key, scenario.plaintext).steps[scenario.cribOffset].after,
+      rings: scenario.key.rings,
+    });
+    const truth = chase(spec, core, L("E"), L("P"));
+    expect(truth.failed).toBe(false);
+    expect(truth.steps.some((s) => s.closesLoop)).toBe(true);
+    const plug = new Map(scenario.key.plugboard.split(" ").flatMap((p) => [[p[0], p[1]], [p[1], p[0]]] as [string, string][]));
+    for (const [letter, value] of truth.known) {
+      const ch = ALPHABET[letter];
+      expect(ALPHABET[value]).toBe(plug.get(ch) ?? ch);
+    }
+    const failures = Array.from({ length: 26 }, (_, v) => chase(spec, core, L("E"), v)).filter((r) => r.failed).length;
+    expect(failures).toBe(25);
   });
 });

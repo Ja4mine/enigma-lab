@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { LangContext, makeT, storeLang, storedLang, type Lang } from "./i18n";
-import { Stage } from "./engine/Stage";
+import { Stage, StageCanvas } from "./engine/Stage";
 import { loadLetterFonts } from "./engine/textures";
 import type { Theme } from "./engine/materials";
 import { BrandMark, IconClose, IconInfo, IconMoon, IconSun } from "./ui/icons";
@@ -58,6 +59,7 @@ export default function App() {
   const [machine, setMachine] = useState<Machine>(machineFromHash);
   const [crumbs, setCrumbs] = useState<Crumb[]>([]);
   const [ready, setReady] = useState(false);
+  const [canvasReady, setCanvasReady] = useState(false);
   const [about, setAbout] = useState(false);
   const gl = useMemo(webglAvailable, []);
   const stage = useMemo(() => (gl ? new Stage() : null), [gl]);
@@ -71,6 +73,7 @@ export default function App() {
   }, []);
   const langValue = useMemo(() => ({ lang, setLang, t: makeT(lang) }), [lang, setLang]);
   const zh = lang === "zh";
+  const markCanvasReady = useCallback(() => setCanvasReady(true), []);
 
   useEffect(() => {
     loadLetterFonts().then(() => setReady(true));
@@ -193,7 +196,7 @@ export default function App() {
               ? "这个浏览器无法启用 WebGL，三维检视不可用。请换用支持 WebGL 的浏览器。"
               : "WebGL is not available in this browser, so the 3D bench cannot start. Try a browser with WebGL enabled."}
           </div>
-        ) : !ready ? (
+        ) : !ready || !canvasReady ? (
           <div className="fallback">{zh ? "正在准备工作台…" : "Preparing the bench…"}</div>
         ) : machine === "enigma" ? (
           <EnigmaWorkbench key="enigma" stage={stage} onCrumbs={setCrumbs} />
@@ -203,6 +206,7 @@ export default function App() {
           </Suspense>
         )}
       </div>
+      {stage && createPortal(<StageCanvas stage={stage} onReady={markCanvasReady} />, stage.element)}
       {about && (
         <div className="modal-backdrop" onClick={() => setAbout(false)}>
           <div

@@ -1,6 +1,10 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import "./styles/fonts.css";
+import "@fontsource-variable/source-serif-4";
+import "@fontsource/courier-prime/400.css";
+import "@fontsource/courier-prime/700.css";
+import "@fontsource/barlow-semi-condensed/600.css";
+import "katex/dist/katex.min.css";
 import "./styles/app.css";
 import App from "./App";
 

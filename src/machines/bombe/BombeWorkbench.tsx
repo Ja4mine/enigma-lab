@@ -11,6 +11,7 @@ import {
   analyseStop,
   buildMenu,
   coreAt,
+  cribOffsets,
   coreOf,
   indexOf,
   recoverKey,
@@ -27,6 +28,7 @@ import { Callouts, StageCaption, StageView, Track, useProcedure } from "../../ui
 import { IconFrame, IconLabels, IconPause, IconPlay, IconReset, IconShuffle } from "../../ui/icons";
 import { buildBombe, type BombeModel } from "./model";
 import { CribSheet, MenuGraph, MenuSheet, RelationSheet, StopSummary, WireGrid, coreText } from "./sheets";
+import { BombeStory, walkCaption } from "./story";
 
 type Mode = "break" | "teardown";
 interface SweepRank {
@@ -119,6 +121,15 @@ export default function BombeWorkbench({ stage, onCrumbs }: { stage: Stage; onCr
     }
     return [mod26(trueCore[0] + 7), mod26(trueCore[1] + 11), mod26(trueCore[2] + 5)];
   }, [spec, trueCore]);
+
+  const crashFree = useMemo(() => cribOffsets(cipher, crib).filter((o) => !o.crashes.length).length, [cipher, crib]);
+  /** Full run without the diagonal board, for the argument in step 7. */
+  const noDiagonal = useMemo(() => {
+    if (walk !== 6) return null;
+    const run = new BombeRun({ ...spec, diagonal: false });
+    run.runToEnd();
+    return { total: run.stops.length, oneDead: run.stops.filter((s) => s.count === 25).length };
+  }, [walk, spec]);
 
   /* ---------- the run ---------- */
   const runRef = useRef<BombeRun | null>(null);
@@ -428,9 +439,9 @@ export default function BombeWorkbench({ stage, onCrumbs }: { stage: Stage; onCr
             />
           )}
           {walk === 1 && <CribSheet cipher={cipher} crib={crib} offset={offset} onOffset={setOffset} />}
-          {walk === 2 && menu && <MenuSheet menu={menu} loop={loop} onLoop={setLoop} />}
+          {walk === 2 && menu && <MenuSheet menu={menu} spec={spec} trueCore={trueCore} wrongCore={wrongCore} />}
           {walk === 2 && !menu && <NoMenu zh={zh} onFix={() => setOffset(scenario.cribOffset)} />}
-          {walk === 3 && <RelationSheet spec={spec} trueCore={trueCore} wrongCore={wrongCore} />}
+          {walk === 3 && <RelationSheet spec={spec} trueCore={trueCore} wrongCore={wrongCore} loop={loop} onLoop={setLoop} />}
           {walk === 5 && (
             <div className="sheet">
               <div className="sheet-card">
@@ -520,26 +531,26 @@ export default function BombeWorkbench({ stage, onCrumbs }: { stage: Stage; onCr
             </>
           ) : (
             <>
-              <div className="section">
-                <ol className="walk">
-                  {WALK.map((w, i) => (
-                    <li key={i}>
-                      <button type="button" aria-current={walk === i ? "step" : undefined} onClick={() => setWalk(i)}>
-                        <span className="balloon">{i + 1}</span>
-                        <span>{t(w.title)}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ol>
+              <div className="section" key={walk}>
+                <div className="story-head">
+                  <span className="story-step">{zh ? `第 ${walk + 1} 步，共 ${WALK.length} 步` : `Step ${walk + 1} of ${WALK.length}`}</span>
+                  <h2>{t(WALK[walk].title)}</h2>
+                </div>
+                <BombeStory
+                  step={walk}
+                  zh={zh}
+                  scenario={scenario}
+                  menu={activeMenu}
+                  crashFree={crashFree}
+                  noDiagonalStops={noDiagonal}
+                />
               </div>
-              <div className="section">
+              <div className="section" hidden={walk === 3 || walk === 6}>
                 {walk === 0 && <InterceptPanel scenario={scenario} onNew={newMessage} zh={zh} />}
                 {walk === 1 && <CribPanel zh={zh} offset={offset} scenario={scenario} menuOk={!!menu} />}
                 {walk === 2 && <MenuPanel zh={zh} menu={activeMenu} />}
-                {walk === 3 && <RelationPanel zh={zh} />}
                 {walk === 4 && <WiringPanel zh={zh} menu={activeMenu} order={order} setOrder={setOrder} trueOrder={scenario.key.rotors} />}
                 {walk === 5 && <ContradictionPanel zh={zh} probe={probe} setProbe={setProbe} spec={spec} />}
-                {walk === 6 && <DiagonalPanel zh={zh} />}
                 {walk === 7 && (
                   <RunPanel
                     zh={zh}
@@ -575,7 +586,7 @@ export default function BombeWorkbench({ stage, onCrumbs }: { stage: Stage; onCr
                     diagonal={diagonal}
                   />
                 )}
-                {walk === 8 && <CheckPanel zh={zh} checked={checked} spec={spec} />}
+                {walk === 8 && <CheckPanel checked={checked} spec={spec} />}
               </div>
               <div className="section">
                 <div className="btn-row" style={{ justifyContent: "space-between" }}>
@@ -601,54 +612,6 @@ export default function BombeWorkbench({ stage, onCrumbs }: { stage: Stage; onCr
 /* ------------------------------------------------------------------ */
 /* Captions and panels                                                 */
 /* ------------------------------------------------------------------ */
-
-function walkCaption(walk: number, zh: boolean) {
-  const c = [
-    {
-      title: zh ? "一份截获的电文" : "One intercepted message",
-      text: zh
-        ? "我们不知道当天密钥：转子排列、起始位置、环设置、插线板全都未知。Bombe 要从一小段猜到的明文出发，把它们找回来。"
-        : "The day's key is unknown: wheel order, start, rings and plugboard. The Bombe starts from a short guessed plaintext and brings them back.",
-    },
-    {
-      title: zh ? "猜词，并利用“不自映射”" : "A crib, and the no-self-encipherment rule",
-      text: zh ? "把猜测的明文贴在密文下滑动：出现同字母相对的位置全部排除。" : "Slide the guess beneath the ciphertext: every position with a letter over itself is ruled out.",
-    },
-    {
-      title: zh ? "菜单：字母与位置构成的图" : "The menu: a graph of letters and positions",
-      text: zh ? "闭环是关键——每个闭环都是一条与插线板无关的检验。" : "Loops are what matter: each one is a test that does not involve the plugboard.",
-    },
-    {
-      title: zh ? "插线板为什么能被绕开" : "Why the plugboard can be sidestepped",
-      text: zh ? "S 是对合，所以 c = S E S(p) 可以改写成 S(c) = E(S(p))。" : "S is an involution, so c = S E S(p) becomes S(c) = E(S(p)).",
-    },
-    {
-      title: zh ? "把菜单接成电路" : "Turn the menu into wiring",
-      text: zh
-        ? "每条边是一台三联滚筒（下层多转 i 格），每个字母是一束 26 根线；背门上的电缆按菜单把它们连起来。"
-        : "Each edge becomes a drum triple (bottom drum i places on), each letter a bundle of 26 wires; cables on the rear gate join them as the menu says.",
-    },
-    {
-      title: zh ? "电流流遍 = 自相矛盾" : "Current everywhere means contradiction",
-      text: zh
-        ? "给测试字母的某一根线加电，相当于假设一条插线；电流能到达的每根线都是它的推论。"
-        : "Putting voltage on one wire of the test letter is a stecker hypothesis; every wire the current reaches is one of its consequences.",
-    },
-    {
-      title: zh ? "Welchman 的对角板" : "Welchman's diagonal board",
-      text: zh ? "S(a) = b 当且仅当 S(b) = a：把这条对称性也接成导线。" : "S(a) = b exactly when S(b) = a: wire that symmetry in as well.",
-    },
-    {
-      title: zh ? "转过 17,576 个位置" : "Through all 17,576 positions",
-      text: zh ? "上层滚筒最快。只要有一根测试线没电，机器就停下，记下位置和测试寄存器。" : "The top drums turn fastest. Whenever a test wire stays dead the machine stops; record the position and the register.",
-    },
-    {
-      title: zh ? "核对停机，恢复密钥" : "Check the stops, recover the key",
-      text: zh ? "假停机会在逐一检验中露出矛盾；真停机给出插线、再试出环设置，电文便读出来了。" : "False stops reveal a contradiction when checked; the true one gives the steckers, then the ring settings, and the message reads.",
-    },
-  ];
-  return c[walk];
-}
 
 function InterceptPanel({ scenario, onNew, zh }: { scenario: Scenario; onNew: () => void; zh: boolean }) {
   return (
@@ -679,76 +642,36 @@ function InterceptPanel({ scenario, onNew, zh }: { scenario: Scenario; onNew: ()
         <dt>{zh ? "合计" : "Total"}</dt>
         <dd>≈ 1.07 × 10²³</dd>
       </dl>
-      <p className="prose" style={{ marginTop: 10 }}>
-        {zh
-          ? "插线板贡献了绝大部分。Bombe 的设计思想是：根本不去枚举插线板，只枚举 60 × 17,576 ≈ 10⁶ 种转子状态，让电路替我们判断插线板“能不能存在”。"
-          : "The plugboard contributes most of it. The Bombe never enumerates plugboards: it runs only the 60 × 17,576 ≈ 10⁶ rotor states and lets the circuit decide whether any plugboard could fit."}
-      </p>
     </>
   );
 }
 
 function CribPanel({ zh, offset, scenario, menuOk }: { zh: boolean; offset: number; scenario: Scenario; menuOk: boolean }) {
   return (
-    <>
-      <h3 style={{ margin: "0 0 8px" }}>{zh ? "为什么能排除" : "Why positions fall away"}</h3>
-      <p className="prose">
-        {zh
-          ? "反射器让每次加密 Cᵢ 都没有不动点：Cᵢ(x) ≠ x。所以猜词放对的位置上，绝不会有一列上下字母相同。"
-          : "The reflector makes every Cᵢ fixed-point-free: Cᵢ(x) ≠ x. In the right place, no column of the crib can show a letter above itself."}
-      </p>
-      <p className="prose">
-        {zh
-          ? "这只能“排除”，不能“确认”：剩下的位置仍有好几个。实际工作中，报告格式（这里电文前 19 个字母是收报单位）把位置缩小到一两个，每个都单独上 Bombe。"
-          : "It only excludes, never confirms: several positions survive. In practice the report format (here the first 19 letters address the unit) narrows it to one or two, each run on the Bombe separately."}
-      </p>
-      <p className="note">
-        {menuOk
-          ? zh
-            ? `当前选择：第 ${offset} 位。${offset === scenario.cribOffset ? "这是电文里猜词真正所在的位置。" : "这个位置无冲突，但不一定正确——继续往下，Bombe 会告诉你。"}`
-            : `Chosen: position ${offset}. ${offset === scenario.cribOffset ? "This is where the crib really is." : "Crash-free, but not necessarily right; carry on and the Bombe will tell."}`
-          : zh
-            ? "当前位置有冲突，无法构成菜单。"
-            : "This position crashes; it cannot form a menu."}
-      </p>
-    </>
+    <p className="note">
+      {menuOk
+        ? zh
+          ? `当前位置：第 ${offset} 位。${offset === scenario.cribOffset ? "这是猜词真正所在的位置。" : "这里没有冲突，但不一定是对的，后面的步骤会给出答案。"}`
+          : `Current position: ${offset}. ${offset === scenario.cribOffset ? "This is where the crib really is." : "No crash here, but it may still be wrong; the later steps will tell."}`
+        : zh
+          ? "这个位置有冲突，画不出菜单。换一个位置。"
+          : "This position crashes, so it cannot form a menu. Pick another."}
+    </p>
   );
 }
 
 function MenuPanel({ zh, menu }: { zh: boolean; menu: Menu }) {
   return (
-    <>
-      <h3 style={{ margin: "0 0 8px" }}>{zh ? "从对照表到图" : "From pairs to a graph"}</h3>
-      <dl className="specs">
+    <details className="pairs">
+      <summary>{zh ? `全部 ${menu.links.length} 对字母` : `All ${menu.links.length} letter pairs`}</summary>
+      <div className="pair-grid">
         {menu.links.map((l) => (
-          <div key={l.index} style={{ display: "contents" }}>
-            <dt className="mono">{l.index + 1}</dt>
-            <dd className="mono">
-              {L(l.plain)} — {L(l.cipher)}
-            </dd>
-          </div>
+          <span key={l.index}>
+            <b>{l.index + 1}</b> {L(l.plain)}–{L(l.cipher)}
+          </span>
         ))}
-      </dl>
-      <p className="prose" style={{ marginTop: 10 }}>
-        {zh
-          ? `闭环数 = 边数 − 字母数 + 连通块数 = ${menu.links.length} − ${menu.letters.length} + ${menu.components.length} = ${menu.closures}。Turing 的经验表：闭环越多，每种转子排列的假停机越少。`
-          : `Loops = edges − letters + parts = ${menu.links.length} − ${menu.letters.length} + ${menu.components.length} = ${menu.closures}. Turing's tables: the more loops, the fewer false stops per wheel order.`}
-      </p>
-    </>
-  );
-}
-
-function RelationPanel({ zh }: { zh: boolean }) {
-  return (
-    <>
-      <h3 style={{ margin: "0 0 8px" }}>{zh ? "要点" : "In short"}</h3>
-      <ol className="derive">
-        <li>{zh ? "插线板是对合，可以从两侧“剥掉”。" : "The plugboard is an involution, so it peels off both sides."}</li>
-        <li>{zh ? "剩下的 Eᵢ 只取决于转子：滚筒可以照做。" : "What remains, Eᵢ, depends only on the rotors, which drums can copy."}</li>
-        <li>{zh ? "闭环把未知的 S(a) 夹成“合成置换的不动点”。" : "A loop pins the unknown S(a) to a fixed point of a composite permutation."}</li>
-        <li>{zh ? "多个闭环同时成立的转子位置极少。" : "Rotor positions that satisfy several loops at once are rare."}</li>
-      </ol>
-    </>
+      </div>
+    </details>
   );
 }
 
@@ -767,12 +690,6 @@ function WiringPanel({
 }) {
   return (
     <>
-      <h3 style={{ margin: "0 0 8px" }}>{zh ? "接线规则" : "Wiring rules"}</h3>
-      <ul className="derive" style={{ listStyle: "disc" }}>
-        <li>{zh ? "每个菜单字母 → 一个“公共接点”，即一束 26 根线（第 k 根代表“这个字母插到第 k 个字母”）。" : "Each menu letter → a common: a bundle of 26 wires (wire k means “this letter is plugged to the k-th letter”)."}</li>
-        <li>{zh ? "每条边 i → 一台三联滚筒，两端分别接到两个字母的公共接点；下层滚筒比基准多转 i 格。" : "Each edge i → one drum triple, its two ends on the two letters' commons; its bottom drum is set i places on."}</li>
-        <li>{zh ? "测试字母的公共接点再接到测试寄存器。" : "The test letter's common also goes to the test register."}</li>
-      </ul>
       <MenuGraph menu={menu} loop={null} height={250} />
       <WheelOrderPicker zh={zh} order={order} setOrder={setOrder} trueOrder={trueOrder} />
     </>
@@ -845,7 +762,6 @@ function ContradictionPanel({
 }) {
   return (
     <>
-      <h3 style={{ margin: "0 0 8px" }}>{zh ? "一次测试读出 26 个假设" : "One test reads 26 hypotheses"}</h3>
       <div className="segmented small" role="group" style={{ marginBottom: 10 }}>
         <button type="button" aria-pressed={probe === "wrong"} onClick={() => setProbe("wrong")}>
           {zh ? "错误位置" : "Wrong position"}
@@ -854,46 +770,14 @@ function ContradictionPanel({
           {zh ? "真实位置" : "True position"}
         </button>
       </div>
-      <ol className="derive">
-        <li>
-          {zh
-            ? `给 ${L(spec.menu.input)} 组的第 ${L(spec.inputWire)} 根线加电 = 假设 S(${L(spec.menu.input)}) = ${L(spec.inputWire)}。`
-            : `Voltage on wire ${L(spec.inputWire)} of bundle ${L(spec.menu.input)} = the hypothesis S(${L(spec.menu.input)}) = ${L(spec.inputWire)}.`}
-        </li>
-        <li>
-          {zh
-            ? "扰频器是双端的，电流沿每条约束双向传播；能到达的每根线都是被这个假设逼出来的结论。"
-            : "Scramblers are double-ended, so current follows every constraint both ways; each wire it reaches is forced by the hypothesis."}
-        </li>
-        <li>
-          {zh
-            ? `如果 ${L(spec.menu.input)} 组的线被点亮不止一根，就是同一个字母插到两处——矛盾。真插线所在的那组导线自成一体，与假假设不连通。`
-            : `If more than one wire of ${L(spec.menu.input)} lights, one letter is plugged to two places: a contradiction. The true steckers form a closed set of wires that a false hypothesis cannot reach.`}
-        </li>
-        <li>
-          {zh
-            ? "因此：26 根全亮 → 所有假设都错，这个位置排除；25 根亮 → 没亮的那根就是插线；只亮 1 根 → 注入的假设本身就对。"
-            : "So: all 26 live → every hypothesis fails, position rejected; 25 live → the dead one is the stecker; just 1 live → the injected guess was right."}
-        </li>
-      </ol>
-    </>
-  );
-}
-
-function DiagonalPanel({ zh }: { zh: boolean }) {
-  return (
-    <>
-      <h3 style={{ margin: "0 0 8px" }}>{zh ? "把对称性接成导线" : "Wiring in the symmetry"}</h3>
-      <p className="prose">
-        {zh
-          ? "导线网格里，第 a 行第 b 列表示“S(a) = b”。插线板是对合，所以 (a, b) 与 (b, a) 永远同真同假。对角板把这两根线焊在一起——网格因此沿虚线对角线对称。"
-          : "In the grid, row a, column b means S(a) = b. The plugboard is an involution, so (a, b) and (b, a) are always true together. The diagonal board solders the two wires together, which makes the grid symmetric about the dashed diagonal."}
-      </p>
-      <p className="prose">
-        {zh
-          ? "效果：推论可以经过菜单之外的字母绕回来，矛盾出现得更早。第一台 Bombe“Victory”没有对角板，需要至少 3 个闭环；加上对角板后，闭环更少、甚至没有闭环的菜单也能用。"
-          : "Consequences can now travel through letters outside the menu and come back, so contradictions arrive sooner. The first Bombe, “Victory”, had no diagonal board and needed at least three loops; with it, menus with fewer loops, even none, became usable."}
-      </p>
+      <dl className="specs">
+        <dt>{zh ? "26 根全亮" : "All 26 live"}</dt>
+        <dd>{zh ? "所有假设都错，转子继续转" : "Every guess fails, drums move on"}</dd>
+        <dt>{zh ? "25 根亮" : "25 live"}</dt>
+        <dd>{zh ? `停机：没亮的就是 S(${L(spec.menu.input)})` : `Stop: the dead wire is S(${L(spec.menu.input)})`}</dd>
+        <dt>{zh ? "只亮 1 根" : "Just 1 live"}</dt>
+        <dd>{zh ? "停机：通电的假设本身就对" : "Stop: the injected guess is itself right"}</dd>
+      </dl>
     </>
   );
 }
@@ -1310,22 +1194,14 @@ function CheckSheet({
 }
 
 function CheckPanel({
-  zh,
   checked,
   spec,
 }: {
-  zh: boolean;
   checked: { stop: BombeStop; order: Triple<RotorId>; key: RecoveredKey | null; consistent: boolean } | null;
   spec: BombeSpec;
 }) {
   return (
     <>
-      <h3 style={{ margin: "0 0 8px" }}>{zh ? "核对的三步" : "Checking, in three moves"}</h3>
-      <ol className="derive">
-        <li>{zh ? "读出测试寄存器，得到测试字母的插线候选。" : "Read the test register: a stecker candidate for the test letter."}</li>
-        <li>{zh ? "沿菜单推出其余字母的插线；任何冲突都说明是假停机。" : "Follow the menu to the other letters' steckers; any clash means a false stop."}</li>
-        <li>{zh ? "用推出的插线试译，调整右、中转子的环设置直到全文通顺。" : "Decrypt with them, adjusting the right and middle ring settings until the whole text reads."}</li>
-      </ol>
       {checked && <StopSummary spec={spec} core={checked.stop.core} />}
     </>
   );

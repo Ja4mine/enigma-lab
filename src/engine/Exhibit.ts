@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { Text } from "../i18n";
-import { overlay } from "./materials";
+import { layerMaterial, overlay } from "./materials";
 import { clamp01, easeInOut } from "./tween";
 
 export interface FeatureMeta {
@@ -127,8 +127,11 @@ export class Exhibit {
       const part = this.parts.get(id)!;
       mesh.userData.part = id;
       mesh.userData.material = mesh.material;
+      const flat = mesh.geometry.type === "CircleGeometry" || mesh.geometry.type === "PlaneGeometry";
+      for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) layerMaterial(m, flat);
       part.meshes.push(mesh);
       if (mesh.userData.pickable !== false) this.pickables.push(mesh);
+      else mesh.raycast = () => {};
       if (!(mesh as THREE.InstancedMesh).isInstancedMesh && !mesh.userData.noEdges) {
         const geo = mesh.geometry;
         const key = geo.uuid + ":" + (mesh.userData.edgeAngle ?? 28);

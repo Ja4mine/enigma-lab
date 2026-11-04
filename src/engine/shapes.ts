@@ -29,13 +29,42 @@ const cachedGeo = <T extends THREE.BufferGeometry>(key: string, make: () => T): 
   return geoCache.get(key) as T;
 };
 
+/**
+ * Box-projected UVs in centimetres. RoundedBoxGeometry squeezes its UVs on the
+ * rounded edges, which smears grain into marbled veins; this keeps the same
+ * texel density on every face and corner.
+ */
+function boxUv(geometry: THREE.BufferGeometry) {
+  const g = geometry.index ? geometry.toNonIndexed() : geometry;
+  const pos = g.attributes.position,
+    nor = g.attributes.normal,
+    uv = g.attributes.uv;
+  for (let i = 0; i < pos.count; i += 3) {
+    let nx = 0,
+      ny = 0,
+      nz = 0;
+    for (let k = i; k < i + 3; k++) {
+      nx += Math.abs(nor.getX(k));
+      ny += Math.abs(nor.getY(k));
+      nz += Math.abs(nor.getZ(k));
+    }
+    for (let k = i; k < i + 3; k++) {
+      if (ny >= nx && ny >= nz) uv.setXY(k, pos.getX(k), pos.getZ(k));
+      else if (nz >= nx) uv.setXY(k, pos.getX(k), pos.getY(k));
+      else uv.setXY(k, pos.getZ(k), pos.getY(k));
+    }
+  }
+  uv.needsUpdate = true;
+  return g;
+}
+
 export const roundedBox = (w: number, h: number, d: number, r = 0.3, seg = 3) =>
   cachedGeo(`rb:${w}:${h}:${d}:${r}:${seg}`, () =>
-    new RoundedBoxGeometry(w, h, d, seg, Math.min(r, w / 2 - 1e-3, h / 2 - 1e-3, d / 2 - 1e-3)),
+    boxUv(new RoundedBoxGeometry(w, h, d, seg, Math.min(r, w / 2 - 1e-3, h / 2 - 1e-3, d / 2 - 1e-3))),
   );
 
 export const boxGeo = (w: number, h: number, d: number) =>
-  cachedGeo(`b:${w}:${h}:${d}`, () => new THREE.BoxGeometry(w, h, d));
+  cachedGeo(`b:${w}:${h}:${d}`, () => boxUv(new THREE.BoxGeometry(w, h, d)));
 
 /** Cylinder whose axis is +x. */
 export const cylX = (r: number, len: number, seg = 48, open = false) =>

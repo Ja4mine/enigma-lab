@@ -484,6 +484,54 @@ export class BombeEvaluator {
   }
 }
 
+/** One inference S(from) = x ⟹ S(to) = E_i(x), made while following the menu. */
+export interface Deduction {
+  link: MenuLink;
+  from: number;
+  to: number;
+  input: number;
+  value: number;
+  /** The menu already forced a different value on `to`. */
+  clash: number | null;
+  /** The loop closed and agreed with the value already known. */
+  closesLoop: boolean;
+}
+
+/**
+ * Follows one guess S(letter) = value through the menu by hand, edge by edge,
+ * until every reachable edge is used or a letter is forced to two values.
+ * Unlike the machine (which runs every consequence at once), this keeps the
+ * order of reasoning so it can be read as a proof.
+ */
+export function chase(spec: BombeSpec, core: Triple<number>, letter: number, value: number) {
+  const evaluator = new BombeEvaluator(spec);
+  const known = new Map<number, number>([[letter, value]]);
+  const used = new Set<number>();
+  const steps: Deduction[] = [];
+  const queue = [letter];
+  while (queue.length) {
+    const from = queue.shift()!;
+    for (let i = 0; i < spec.menu.links.length; i++) {
+      if (used.has(i)) continue;
+      const link = spec.menu.links[i];
+      if (link.plain !== from && link.cipher !== from) continue;
+      used.add(i);
+      const to = link.plain === from ? link.cipher : link.plain;
+      const input = known.get(from)!;
+      const out = evaluator.permutationFor(core, link.index)[input];
+      const prior = known.get(to);
+      const clash = prior !== undefined && prior !== out ? prior : null;
+      steps.push({ link, from, to, input, value: out, clash, closesLoop: prior === out });
+      if (clash !== null) return { steps, known, failed: true };
+      if (prior === undefined) {
+        known.set(to, out);
+        queue.push(to);
+      }
+    }
+  }
+  return { steps, known, failed: false };
+}
+
 /** Incremental run so the UI can animate the drums and stay responsive. */
 export class BombeRun {
   readonly evaluator: BombeEvaluator;

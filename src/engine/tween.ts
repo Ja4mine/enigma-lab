@@ -12,11 +12,3 @@ export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 export const prefersReducedMotion = () =>
   typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-/** Time-based animation driven by the stage's frame loop. */
-export interface Animation {
-  duration: number;
-  elapsed: number;
-  update: (t: number) => void;
-  done?: () => void;
-}

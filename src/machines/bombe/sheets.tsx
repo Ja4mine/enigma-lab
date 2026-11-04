@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation, type SimulationNodeDatum } from "d3-force";
 import { ALPHABET, mod26, type Triple } from "../../core/enigma";
 import {
   analyseStop,
+  chase,
   crashes,
   cribOffsets,
   propagate,
@@ -11,6 +13,7 @@ import {
 } from "../../core/bombe";
 import { useLang } from "../../i18n";
 import { IconReset } from "../../ui/icons";
+import { Tex, TexBlock } from "../../ui/Explain";
 
 const L = (n: number) => ALPHABET[mod26(n)];
 export const coreText = (c: Triple<number>) => c.map(L).join("");
@@ -43,8 +46,8 @@ export function CribSheet({
         <h4>{zh ? "把猜测的明文放到密文下面滑动" : "Slide the guessed plaintext along the ciphertext"}</h4>
         <p className="prose">
           {zh
-            ? `猜词：${crib}（“天气预报”）。在第 ${offset} 位，若有任何一列上下字母相同，这个位置就不可能——恩尼格玛从不把字母加密成自己。`
-            : `Crib: ${crib} (“weather forecast”). At position ${offset}, any column where a letter sits over itself rules the position out: Enigma never enciphers a letter to itself.`}
+            ? `猜词 ${crib}（“天气预报”）。点下面的数字移动它：只要有一列上下字母相同，这个位置就不可能。`
+            : `The crib is ${crib} (“weather forecast”). Click a number below to move it: any column with a letter over itself makes that position impossible.`}
         </p>
         <div className="drag" role="img" aria-label={zh ? "猜词对齐" : "Crib alignment"}>
           <div className="drag-row index">
@@ -103,62 +106,20 @@ export function CribSheet({
 /* Menu graph                                                          */
 /* ------------------------------------------------------------------ */
 
-/** Fruchterman–Reingold inside a box; deterministic start on a circle. */
+/** d3-force layout of one connected part of the menu. */
 function forceLayout(nodes: number[], links: { a: number; b: number }[], w: number, h: number) {
-  const pos = new Map<number, { x: number; y: number }>();
-  nodes.forEach((n, i) => {
-    const a = (i / Math.max(1, nodes.length)) * Math.PI * 2 + 0.3;
-    pos.set(n, { x: Math.cos(a) * w * 0.3, y: Math.sin(a) * h * 0.3 });
-  });
-  if (nodes.length === 1) pos.set(nodes[0], { x: 0, y: 0 });
-  const k = Math.sqrt((w * h) / Math.max(2, nodes.length)) * 0.85;
-  for (let it = 0; it < 500; it++) {
-    const temp = (1 - it / 500) * k * 0.5 + 0.3;
-    const disp = new Map(nodes.map((n) => [n, { x: 0, y: 0 }]));
-    for (let i = 0; i < nodes.length; i++)
-      for (let j = i + 1; j < nodes.length; j++) {
-        const p = pos.get(nodes[i])!,
-          q = pos.get(nodes[j])!;
-        let dx = p.x - q.x,
-          dy = p.y - q.y;
-        const d = Math.max(1, Math.hypot(dx, dy));
-        const f = (k * k) / d;
-        dx /= d;
-        dy /= d;
-        disp.get(nodes[i])!.x += dx * f;
-        disp.get(nodes[i])!.y += dy * f;
-        disp.get(nodes[j])!.x -= dx * f;
-        disp.get(nodes[j])!.y -= dy * f;
-      }
-    for (const { a, b } of links) {
-      if (a === b) continue;
-      const p = pos.get(a)!,
-        q = pos.get(b)!;
-      let dx = p.x - q.x,
-        dy = p.y - q.y;
-      const d = Math.max(1, Math.hypot(dx, dy));
-      const f = (d * d) / k;
-      dx /= d;
-      dy /= d;
-      disp.get(a)!.x -= dx * f;
-      disp.get(a)!.y -= dy * f;
-      disp.get(b)!.x += dx * f;
-      disp.get(b)!.y += dy * f;
-    }
-    for (const n of nodes) {
-      const p = pos.get(n)!,
-        dd = disp.get(n)!;
-      dd.x -= p.x * 0.08;
-      dd.y -= p.y * 0.08;
-      const len = Math.max(1e-6, Math.hypot(dd.x, dd.y));
-      p.x += (dd.x / len) * Math.min(len, temp);
-      p.y += (dd.y / len) * Math.min(len, temp);
-    }
-  }
-  return pos;
+  const ns: (SimulationNodeDatum & { id: number })[] = nodes.map((id) => ({ id }));
+  const ls = links.map((l) => ({ source: l.a, target: l.b }));
+  const sim = forceSimulation(ns)
+    .force("link", forceLink(ls).id((d) => (d as { id: number }).id).distance(84).strength(0.7))
+    .force("charge", forceManyBody().strength(-420))
+    .force("collide", forceCollide(30))
+    .force("center", forceCenter(w / 2, h / 2))
+    .stop();
+  sim.tick(400);
+  return new Map(ns.map((n) => [n.id, { x: n.x!, y: n.y! }]));
 }
 
-/** Fit points into a rectangle, keeping aspect ratio. */
 function fit(pos: Map<number, { x: number; y: number }>, x0: number, y0: number, w: number, h: number, pad: number) {
   const pts = [...pos.values()];
   const minX = Math.min(...pts.map((p) => p.x)),
@@ -210,11 +171,18 @@ export function MenuGraph({
   loop,
   hotLink,
   height = 330,
+  known,
+  usedLinks,
+  clashLetter,
 }: {
   menu: Menu;
   loop: number | null;
   hotLink?: number | null;
   height?: number;
+  /** Letters whose stecker has been deduced so far. */
+  known?: Map<number, number>;
+  usedLinks?: Set<number>;
+  clashLetter?: number | null;
 }) {
   const W = 640,
     H = height;
@@ -239,7 +207,8 @@ export function MenuGraph({
           cy = my + (dx / len) * bend;
         const lx = (a.x + 2 * cx + b.x) / 4,
           ly = (a.y + 2 * cy + b.y) / 4;
-        const cls = hotLink === i ? "edge hot" : inLoop.has(i) ? "edge loop" : "edge";
+        const walked = usedLinks?.has(link.index);
+        const cls = hotLink === i ? "edge hot" : walked ? "edge walked" : known ? "edge" : inLoop.has(i) ? "edge loop" : "edge";
         return (
           <g key={i}>
             <path className={cls} d={`M${a.x} ${a.y} Q${cx} ${cy} ${b.x} ${b.y}`} />
@@ -254,11 +223,16 @@ export function MenuGraph({
         const p = pos.get(l)!;
         const dim = loop !== null && !(menu.loops[loop]?.letters ?? []).includes(l);
         return (
-          <g key={l} className={`node${l === menu.input ? " input" : ""}${dim ? " dim" : ""}`}>
+          <g key={l} className={`node${l === menu.input ? " input" : ""}${dim ? " dim" : ""}${clashLetter === l ? " clash" : ""}`}>
             <circle cx={p.x} cy={p.y} r={15} />
             <text x={p.x} y={p.y + 6} textAnchor="middle">
               {L(l)}
             </text>
+            {known?.has(l) && (
+              <text className="node-value" x={p.x} y={p.y + 30} textAnchor="middle">
+                S={L(known.get(l)!)}
+              </text>
+            )}
           </g>
         );
       })}
@@ -266,29 +240,104 @@ export function MenuGraph({
   );
 }
 
-export function MenuSheet({ menu, loop, onLoop }: { menu: Menu; loop: number | null; onLoop: (i: number | null) => void }) {
+export function MenuSheet({
+  menu,
+  spec,
+  trueCore,
+  wrongCore,
+}: {
+  menu: Menu;
+  spec: BombeSpec;
+  trueCore: Triple<number>;
+  wrongCore: Triple<number>;
+}) {
   const { lang } = useLang();
   const zh = lang === "zh";
+  const [where, setWhere] = useState<"wrong" | "true">("wrong");
+  const [guess, setGuess] = useState(0);
+  const [shown, setShown] = useState(1);
+  const core = where === "wrong" ? wrongCore : trueCore;
+  const input = menu.input;
+  const run = useMemo(() => chase(spec, core, input, guess), [spec, core, input, guess]);
+  const outcomes = useMemo(() => Array.from({ length: 26 }, (_, v) => chase(spec, core, input, v).failed), [spec, core, input]);
+  useEffect(() => setShown(1), [where, guess, spec]);
+  const steps = run.steps.slice(0, shown);
+  const finished = shown >= run.steps.length;
+  const known = new Map<number, number>([[input, guess]]);
+  for (const d of steps) if (d.clash === null) known.set(d.to, d.value);
+  const last = steps[steps.length - 1];
+  const alive = outcomes.filter((failed) => !failed).length;
   return (
     <div className="sheet">
       <div className="sheet-card">
-        <h4>{zh ? "菜单：把明密对照画成图" : "The menu: plain/cipher pairs drawn as a graph"}</h4>
+        <h4>{zh ? "亲手推一遍：字母点是推理能到的地方" : "Follow it by hand: the graph is where reasoning can go"}</h4>
         <p className="prose">
           {zh
-            ? `每一列给出一条边：明文字母 — 密文字母，边上的数字是它在猜词里的位置 i。${menu.letters.length} 个字母、${menu.links.length} 条边，形成 ${menu.closures} 个独立闭环。黑色圆是测试寄存器所接的字母。`
-            : `Each column gives an edge: plain letter — cipher letter, labelled with its crib position i. ${menu.letters.length} letters and ${menu.links.length} edges close ${menu.closures} independent loops. The black node is the letter wired to the test register.`}
+            ? `每条边是猜词的一列，边上的数字是第几列。先猜 ${L(input)} 插到哪，再沿着边一步步推。`
+            : `Each edge is one column of the crib, numbered by position. Guess where ${L(input)} is plugged, then follow the edges.`}
         </p>
-        <MenuGraph menu={menu} loop={loop} />
-        <div className="loops" role="group" aria-label={zh ? "闭环" : "Loops"}>
-          <button type="button" aria-pressed={loop === null} onClick={() => onLoop(null)}>
-            {zh ? "全部闭环" : "All loops"}
-          </button>
-          {menu.loops.map((lp, i) => (
-            <button key={i} type="button" aria-pressed={loop === i} onClick={() => onLoop(i)}>
-              {lp.letters.map(L).join("→")}→{L(lp.letters[0])}
+        <div className="chase-controls">
+          <div className="segmented small" role="group" aria-label={zh ? "转子位置" : "Rotor position"}>
+            <button type="button" aria-pressed={where === "wrong"} onClick={() => setWhere("wrong")}>
+              {zh ? "某个错误位置 " : "A wrong position "}
+              {coreText(wrongCore)}
             </button>
-          ))}
+            <button type="button" aria-pressed={where === "true"} onClick={() => setWhere("true")}>
+              {zh ? "真实位置 " : "The true position "}
+              {coreText(trueCore)}
+            </button>
+          </div>
+          <div className="guess-row" role="group" aria-label={zh ? `猜 S(${L(input)})` : `Guess S(${L(input)})`}>
+            <span className="guess-label">
+              <Tex>{`S(\\mathrm{${L(input)}}) =`}</Tex>
+            </span>
+            {Array.from({ length: 26 }, (_, v) => (
+              <button key={v} type="button" aria-pressed={guess === v} onClick={() => setGuess(v)}>
+                {L(v)}
+              </button>
+            ))}
+          </div>
         </div>
+        <MenuGraph
+          menu={menu}
+          loop={null}
+          known={known}
+          usedLinks={new Set(steps.map((d) => d.link.index))}
+          clashLetter={last && last.clash !== null ? last.to : null}
+          height={340}
+        />
+        <ol className="chase-log" aria-live="polite">
+          {steps.map((d, i) => (
+            <li key={i} className={d.clash !== null ? "bad" : d.closesLoop ? "good" : ""}>
+              <span className="n">{i + 1}</span>
+              <Tex>{`S(\\mathrm{${L(d.to)}}) = E_{${d.link.index + 1}}(S(\\mathrm{${L(d.from)}})) = E_{${d.link.index + 1}}(\\mathrm{${L(d.input)}}) = \\mathrm{${L(d.value)}}`}</Tex>
+              {d.clash !== null && <em>{zh ? `但刚才已推出 S(${L(d.to)}) = ${L(d.clash)}，撞车` : `but S(${L(d.to)}) = ${L(d.clash)} already, a clash`}</em>}
+              {d.closesLoop && <em>{zh ? "绕回来，相符" : "back round, it agrees"}</em>}
+            </li>
+          ))}
+        </ol>
+        <div className="btn-row">
+          <button type="button" className="btn primary" disabled={finished} onClick={() => setShown((n) => n + 1)}>
+            {zh ? "推下一步" : "Next deduction"}
+          </button>
+          <button type="button" className="btn" disabled={finished} onClick={() => setShown(run.steps.length)}>
+            {zh ? "推到底" : "Finish"}
+          </button>
+        </div>
+        {finished && (
+          <p className={`note ${run.failed ? "verdict-bad" : "verdict-good"}`}>
+            {run.failed
+              ? zh
+                ? `假设 S(${L(input)}) = ${L(guess)} 被证伪。我们没有用到插线板的任何信息。`
+                : `The guess S(${L(input)}) = ${L(guess)} is disproved, without using anything about the plugboard.`
+              : zh
+                ? `所有边都走完，没有撞车：S(${L(input)}) = ${L(guess)} 活了下来。`
+                : `Every edge used and no clash: S(${L(input)}) = ${L(guess)} survives.`}{" "}
+            {zh
+              ? `这个转子位置上，26 个猜测有 ${26 - alive} 个撞车，${alive} 个活下来。`
+              : `At this rotor position ${26 - alive} of the 26 guesses clash and ${alive} survive.`}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -318,130 +367,71 @@ export function RelationSheet({
   spec,
   trueCore,
   wrongCore,
+  loop: chosen,
+  onLoop,
 }: {
   spec: BombeSpec;
   trueCore: Triple<number>;
   wrongCore: Triple<number>;
+  loop: number | null;
+  onLoop: (i: number | null) => void;
 }) {
   const { lang } = useLang();
   const zh = lang === "zh";
-  const loop = spec.menu.loops[0];
-  const first = loop ? spec.menu.links[loop.links[0]] : null;
-  const atTrue = loop ? loopPermutation(spec, trueCore, 0) : [];
-  const atWrong = loop ? loopPermutation(spec, wrongCore, 0) : [];
-  const start = loop ? loop.letters[0] : 0;
+  // Start from the longest loop: it shows the argument most clearly.
+  const longest = spec.menu.loops.reduce((best, l, i, all) => (l.letters.length > all[best].letters.length ? i : best), 0);
+  const index = chosen ?? longest;
+  const loop = spec.menu.loops[index];
+  if (!loop) return null;
+  const atTrue = loopPermutation(spec, trueCore, index);
+  const atWrong = loopPermutation(spec, wrongCore, index);
+  const start = loop.letters[0];
+  const chain = [...loop.links].reverse().map((li) => `E_{${spec.menu.links[li].index + 1}}`).join("\\,");
+  const steps = loop.links.map((li, i) => {
+    const a = loop.letters[i],
+      b = loop.letters[(i + 1) % loop.letters.length],
+      n = spec.menu.links[li].index + 1;
+    return `S(\\mathrm{${L(b)}}) &= E_{${n}}\\,S(\\mathrm{${L(a)}})`;
+  });
+  const Row = ({ label, fixed }: { label: string; fixed: number[] }) => (
+    <div className="fixed-row">
+      <span>{label}</span>
+      <span className="alpha">
+        {Array.from({ length: 26 }, (_, v) => (
+          <i key={v} className={fixed.includes(v) ? "on" : ""}>
+            {L(v)}
+          </i>
+        ))}
+      </span>
+      <b>{zh ? `${fixed.length} 个` : `${fixed.length}`}</b>
+    </div>
+  );
   return (
     <div className="sheet">
       <div className="sheet-card">
-        <h4>{zh ? "第一步：把插线板“消掉”" : "Step one: make the plugboard drop out"}</h4>
-        <div className="math eq">
-          <i>c</i>
-          <sub>
-            <i>i</i>
-          </sub>{" "}
-          = <i>S</i> <i>E</i>
-          <sub>
-            <i>i</i>
-          </sub>{" "}
-          <i>S</i> (<i>p</i>
-          <sub>
-            <i>i</i>
-          </sub>
-          )　⟹　<i>S</i>(<i>c</i>
-          <sub>
-            <i>i</i>
-          </sub>
-          ) = <i>E</i>
-          <sub>
-            <i>i</i>
-          </sub>
-          (<i>S</i>(<i>p</i>
-          <sub>
-            <i>i</i>
-          </sub>
-          ))
+        <h4>{zh ? "挑一个闭环，绕一圈" : "Pick a loop and go round it"}</h4>
+        <div className="loops" role="group" aria-label={zh ? "闭环" : "Loops"}>
+          {spec.menu.loops.map((lp, i) => (
+            <button key={i} type="button" aria-pressed={index === i} onClick={() => onLoop(i)}>
+              {lp.letters.map(L).join("→")}→{L(lp.letters[0])}
+            </button>
+          ))}
         </div>
-        <dl className="symbols">
-          <dt>
-            <i>p</i>
-            <sub>i</sub>, <i>c</i>
-            <sub>i</sub>
-          </dt>
-          <dd>{zh ? "猜词第 i 位的明文字母与其下方的密文字母（菜单的一条边）。" : "Crib letter at position i and the cipher letter under it (one menu edge)."}</dd>
-          <dt>
-            <i>S</i>
-          </dt>
-          <dd>{zh ? "未知的插线板，对合：S = S⁻¹。左右两边各乘一次 S 就得到右式。" : "The unknown plugboard, an involution S = S⁻¹; apply S to both sides to get the right form."}</dd>
-          <dt>
-            <i>E</i>
-            <sub>i</sub>
-          </dt>
-          <dd>{zh ? "去掉插线板后的转子组置换：只取决于转子排列和位置，可以由滚筒直接模拟。" : "The scrambler without plugboard: depends only on wheel order and position, which drums can imitate."}</dd>
-        </dl>
-        <p className="prose">
-          {zh ? "未知量从“整块插线板”缩成了“每个字母插到哪”：记 " : "The unknown shrinks from the whole plugboard to where each letter is plugged: write "}
-          <span className="math">
-            <i>x</i>
-            <sub>
-              <i>a</i>
-            </sub>{" "}
-            = <i>S</i>(<i>a</i>)
-          </span>
-          {zh ? "。每条边都是一条约束 " : ". Every edge is one constraint "}
-          <span className="math">
-            <i>x</i>
-            <sub>
-              <i>c</i>
-            </sub>{" "}
-            = <i>E</i>
-            <sub>
-              <i>i</i>
-            </sub>
-            (<i>x</i>
-            <sub>
-              <i>p</i>
-            </sub>
-            )
-          </span>
-          {zh ? "。" : "."}
+        <MenuGraph menu={spec.menu} loop={index} height={260} />
+        <TexBlock>{`\\begin{aligned}${steps.join("\\\\")}\\end{aligned}`}</TexBlock>
+        <p className="prose">{zh ? "把这几行一层层代入，起点又回到自己：" : "Substitute these lines into each other and the start comes back to itself:"}</p>
+        <TexBlock>{`S(\\mathrm{${L(start)}}) = ${chain}\\; S(\\mathrm{${L(start)}})`}</TexBlock>
+      </div>
+      <div className="sheet-card">
+        <h4>{zh ? `哪些字母能当 S(${L(start)})？只有绕一圈不变的` : `Which letters can be S(${L(start)})? Only those unchanged by the trip`}</h4>
+        <Row label={zh ? `真实位置 ${coreText(trueCore)}` : `True ${coreText(trueCore)}`} fixed={atTrue} />
+        <Row label={zh ? `错误位置 ${coreText(wrongCore)}` : `Wrong ${coreText(wrongCore)}`} fixed={atWrong} />
+        <p className="note">
+          {zh
+            ? "真实位置上，真正的插线一定在亮的字母里。单个闭环通常筛不到唯一，两字母的短环尤其如此，所以要多个闭环同时成立。"
+            : "At the true position the real stecker is always among the lit letters. One loop rarely narrows it to a single letter, short two-letter loops least of all, which is why several loops must hold together."}
         </p>
       </div>
-      {loop && first && (
-        <div className="sheet-card">
-          <h4>{zh ? "第二步：闭环给出不含 S 的检验" : "Step two: a loop gives a test without S"}</h4>
-          <p className="prose">
-            {zh ? "沿闭环 " : "Around the loop "}
-            <b className="mono">
-              {loop.letters.map(L).join(" → ")} → {L(loop.letters[0])}
-            </b>
-            {zh ? "，把约束一条条代进去：" : ", substitute one constraint after another:"}
-          </p>
-          <div className="math eq">
-            <i>x</i>
-            <sub>{L(start)}</sub> ={" "}
-            {[...loop.links]
-              .reverse()
-              .map((li) => (
-                <span key={li}>
-                  <i>E</i>
-                  <sub>{spec.menu.links[li].index + 1}</sub>
-                </span>
-              ))}{" "}
-            (<i>x</i>
-            <sub>{L(start)}</sub>)
-          </div>
-          <p className="prose">
-            {zh
-              ? `所以 S(${L(start)}) 必须是这个合成置换的不动点。不动点越少，这个转子位置越“可疑”。在真实位置（${coreText(trueCore)}）它有 ${atTrue.length} 个不动点：${atTrue.map(L).join("、") || "无"}；在随便一个错误位置（${coreText(wrongCore)}）有 ${atWrong.length} 个：${atWrong.map(L).join("、") || "无"}。`
-              : `So S(${L(start)}) must be a fixed point of this composite permutation. At the true position (${coreText(trueCore)}) it has ${atTrue.length} fixed point(s): ${atTrue.map(L).join(", ") || "none"}; at an arbitrary wrong position (${coreText(wrongCore)}) it has ${atWrong.length}: ${atWrong.map(L).join(", ") || "none"}.`}
-          </p>
-          <p className="note">
-            {zh
-              ? "一个闭环平均只剩约 1 个候选；几个闭环同时要求就足以排除绝大多数位置。Bombe 用导线同时检查所有闭环——而且不需要先算出不动点。"
-              : "One loop leaves about one candidate on average; several loops together rule out nearly every position. The Bombe checks all loops at once with wires, without computing fixed points at all."}
-          </p>
-        </div>
-      )}
     </div>
   );
 }

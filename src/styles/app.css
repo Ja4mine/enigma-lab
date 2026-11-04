@@ -1,45 +1,42 @@
 /* ==========================================================================
-   Enigma Lab — technical-illustration workbench
-   Ink on a warm-grey drafting board. Colour only carries meaning:
+   Enigma Lab — an aged archive bench
+   Warm paper, sepia ink, typewritten labels. Colour only carries meaning:
    amber = forward current, teal = return current, red = contradiction,
    drum colours = Bombe wheel numbers.
    ========================================================================== */
 
 :root {
   color-scheme: light;
-  --ground: #e4e2dc;
-  --grid-minor: rgba(25, 27, 30, 0.055);
-  --grid-major: rgba(25, 27, 30, 0.1);
-  --sheet: #f4f3ef;
-  --sheet-2: #ebe9e3;
-  --ink: #191b1e;
-  --ink-2: #4b4f55;
-  --ink-3: #7f838a;
-  --rule: #c8c5bd;
-  --rule-strong: #9d9a92;
-  --amber: #cf7f00;
-  --amber-ink: #9a5d00;
-  --amber-wash: rgba(207, 127, 0, 0.14);
-  --teal: #0b8079;
-  --teal-ink: #07625d;
-  --teal-wash: rgba(11, 128, 121, 0.13);
-  --red: #b73a26;
-  --red-wash: rgba(183, 58, 38, 0.1);
+  --ground: #ded3bf;
+  --paper-glow: #ebe3d3;
+  --sheet: #efe7d8;
+  --sheet-2: #e5dbc8;
+  --ink: #34291c;
+  --ink-2: #5e5140;
+  --ink-3: #897a64;
+  --rule: #cfc2aa;
+  --rule-strong: #a8967a;
+  --amber: #b66b2d;
+  --amber-ink: #8f4f1b;
+  --amber-wash: rgba(182, 107, 45, 0.15);
+  --teal: #3d7d76;
+  --teal-ink: #2c625c;
+  --teal-wash: rgba(61, 125, 118, 0.14);
+  --red: #a63c26;
+  --red-wash: rgba(166, 60, 38, 0.11);
   --drum-i: #b0342b;
   --drum-ii: #6e2433;
   --drum-iii: #2e6a47;
   --drum-iv: #d6a630;
   --drum-v: #6f4b2f;
-  --focus: #1f5fbf;
-  --shadow: 0 1px 0 rgba(25, 27, 30, 0.06), 0 8px 24px -16px rgba(25, 27, 30, 0.35);
+  --focus: #8f4f1b;
+  --shadow: 0 1px 0 rgba(70, 48, 22, 0.08), 0 10px 26px -16px rgba(70, 48, 22, 0.4);
 
-  --font-ui: "Barlow Semi Condensed", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC",
-    "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
-  --font-cond: "Barlow Condensed", "Barlow Semi Condensed", "PingFang SC", "Noto Sans CJK SC",
-    "Microsoft YaHei", sans-serif;
-  --font-mono: "Lab Mono", "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, "Noto Sans Mono CJK SC",
-    monospace;
-  --font-math: "Latin Modern Roman", "STIX Two Text", "Cambria Math", Cambria, "Times New Roman", serif;
+  --font-ui: "Source Serif 4 Variable", "Source Serif 4", "Songti SC", "Noto Serif CJK SC", "Source Han Serif SC",
+    "STSong", "SimSun", Georgia, serif;
+  --font-cond: var(--font-ui);
+  --font-mono: "Courier Prime", "Courier New", "Songti SC", "Noto Serif CJK SC", "STSong", monospace;
+  --font-math: "KaTeX_Main", "Times New Roman", serif;
 
   --fs-xs: 11.5px;
   --fs-s: 12.5px;
@@ -54,49 +51,47 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --ground: #1a1c1f;
-    --grid-minor: rgba(255, 255, 255, 0.04);
-    --grid-major: rgba(255, 255, 255, 0.075);
-    --sheet: #222529;
-    --sheet-2: #2a2e33;
-    --ink: #ebe9e4;
-    --ink-2: #b9b7b2;
-    --ink-3: #868580;
-    --rule: #3b3f45;
-    --rule-strong: #5b5f66;
-    --amber: #f0a324;
-    --amber-ink: #f3b44a;
-    --amber-wash: rgba(240, 163, 36, 0.16);
-    --teal: #2db8b0;
-    --teal-ink: #4fd0c8;
-    --teal-wash: rgba(45, 184, 176, 0.15);
-    --red: #e3664f;
-    --red-wash: rgba(227, 102, 79, 0.14);
-    --focus: #7aa7ff;
+    --ground: #241c13;
+    --paper-glow: #33281b;
+    --sheet: #2c2318;
+    --sheet-2: #362b1e;
+    --ink: #efe3cc;
+    --ink-2: #c9b99d;
+    --ink-3: #978871;
+    --rule: #4a3c2b;
+    --rule-strong: #6d5a42;
+    --amber: #e8a33a;
+    --amber-ink: #efb65c;
+    --amber-wash: rgba(232, 163, 58, 0.16);
+    --teal: #5cb5a9;
+    --teal-ink: #7fcbbf;
+    --teal-wash: rgba(92, 181, 169, 0.15);
+    --red: #e0785c;
+    --red-wash: rgba(224, 120, 92, 0.15);
+    --focus: #e8a33a;
     --shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 10px 30px -16px rgba(0, 0, 0, 0.7);
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --ground: #1a1c1f;
-  --grid-minor: rgba(255, 255, 255, 0.04);
-  --grid-major: rgba(255, 255, 255, 0.075);
-  --sheet: #222529;
-  --sheet-2: #2a2e33;
-  --ink: #ebe9e4;
-  --ink-2: #b9b7b2;
-  --ink-3: #868580;
-  --rule: #3b3f45;
-  --rule-strong: #5b5f66;
-  --amber: #f0a324;
-  --amber-ink: #f3b44a;
-  --amber-wash: rgba(240, 163, 36, 0.16);
-  --teal: #2db8b0;
-  --teal-ink: #4fd0c8;
-  --teal-wash: rgba(45, 184, 176, 0.15);
-  --red: #e3664f;
-  --red-wash: rgba(227, 102, 79, 0.14);
-  --focus: #7aa7ff;
+  --ground: #241c13;
+  --paper-glow: #33281b;
+  --sheet: #2c2318;
+  --sheet-2: #362b1e;
+  --ink: #efe3cc;
+  --ink-2: #c9b99d;
+  --ink-3: #978871;
+  --rule: #4a3c2b;
+  --rule-strong: #6d5a42;
+  --amber: #e8a33a;
+  --amber-ink: #efb65c;
+  --amber-wash: rgba(232, 163, 58, 0.16);
+  --teal: #5cb5a9;
+  --teal-ink: #7fcbbf;
+  --teal-wash: rgba(92, 181, 169, 0.15);
+  --red: #e0785c;
+  --red-wash: rgba(224, 120, 92, 0.15);
+  --focus: #e8a33a;
   --shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 10px 30px -16px rgba(0, 0, 0, 0.7);
 }
 
@@ -273,20 +268,13 @@ button {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background-color: var(--ground);
-  background-image: linear-gradient(var(--grid-major) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
-    linear-gradient(var(--grid-minor) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px);
-  background-size: 120px 120px, 120px 120px, 24px 24px, 24px 24px;
-  background-position: -1px -1px;
+  background: radial-gradient(120% 90% at 45% 38%, var(--paper-glow), var(--ground) 72%);
 }
 .stage-canvas {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  display: block;
   touch-action: none;
 }
 .stage.is-sheet .stage-canvas {
@@ -1675,4 +1663,317 @@ button {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
   }
+}
+
+.icon-button svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.6;
+}
+
+/* --------------------------------------------------------------------------
+   Reasoning: question, attempt, dead end, idea, consequence
+   -------------------------------------------------------------------------- */
+:root {
+  --panel-w: 452px;
+}
+.story-head {
+  margin-bottom: 14px;
+}
+.story-step {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-3);
+}
+.story-head h2 {
+  margin: 2px 0 0;
+  font-family: var(--font-ui);
+  font-size: var(--fs-xl);
+  font-weight: 650;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+.beat {
+  display: grid;
+  gap: 3px;
+  padding: 2px 0 2px 12px;
+  margin: 0 0 14px;
+  border-left: 2px solid var(--rule);
+  font-size: var(--fs-l);
+  line-height: 1.68;
+  color: var(--ink);
+}
+.beat-tag {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-3);
+  line-height: 1.3;
+}
+.beat-body {
+  min-width: 0;
+}
+.beat-ask {
+  border-left-color: var(--ink);
+}
+.beat-ask .beat-body {
+  font-weight: 620;
+}
+.beat-wall {
+  border-left-color: var(--red);
+}
+.beat-wall .beat-tag {
+  color: var(--red);
+}
+.beat-idea {
+  border-left-color: var(--amber);
+  background: linear-gradient(90deg, var(--amber-wash), transparent 80%);
+}
+.beat-idea .beat-tag {
+  color: var(--amber-ink);
+}
+.beat-so {
+  border-left-color: var(--teal);
+}
+.beat-so .beat-tag {
+  color: var(--teal-ink);
+}
+.tex-block {
+  margin: 8px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 0;
+}
+.tex-block .katex-display {
+  margin: 0;
+  text-align: left;
+}
+.tex-block .katex-display > .katex {
+  text-align: left;
+}
+.tex .katex {
+  font-size: 1.04em;
+}
+dl.corr {
+  margin: 4px 0 0;
+  display: grid;
+  gap: 2px;
+}
+dl.corr dt {
+  color: var(--ink-3);
+  font-size: var(--fs-s);
+}
+dl.corr dd {
+  margin: 0 0 6px;
+}
+.chapter h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: var(--fs-xl);
+  font-weight: 650;
+  line-height: 1.25;
+}
+.chapter-n {
+  font-family: var(--font-mono);
+  font-size: var(--fs-m);
+  color: var(--amber-ink);
+}
+.rotor-table {
+  margin: 0 0 14px;
+  padding: 10px;
+  background: var(--sheet-2);
+  border: 1px solid var(--rule);
+}
+.rotor-table figcaption {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--fs-s);
+  color: var(--ink-2);
+  margin-bottom: 6px;
+}
+.rotor-table output {
+  font-family: var(--font-mono);
+}
+.perm-row {
+  display: grid;
+  grid-template-columns: repeat(26, 1fr);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  text-align: center;
+}
+.perm-row.in {
+  color: var(--ink-3);
+}
+.perm-row.out {
+  font-weight: 700;
+  border-top: 1px solid var(--rule);
+  padding-top: 2px;
+  margin-top: 2px;
+}
+.perm-row .mark {
+  color: var(--amber-ink);
+}
+.rotor-table input[type="range"] {
+  width: 100%;
+  accent-color: var(--amber);
+  margin: 8px 0 2px;
+}
+.rotor-table .note {
+  margin: 0;
+}
+table.ledger {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-s);
+  line-height: 1.45;
+  margin-bottom: 12px;
+}
+.ledger th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--ink-3);
+  border-bottom: 1px solid var(--rule-strong);
+  padding: 4px 8px 4px 0;
+}
+.ledger td {
+  border-bottom: 1px solid var(--rule);
+  padding: 6px 8px 6px 0;
+  vertical-align: top;
+}
+.pairs summary {
+  cursor: pointer;
+  font-size: var(--fs-s);
+  color: var(--ink-2);
+}
+.pair-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px 10px;
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+}
+.pair-grid b {
+  color: var(--ink-3);
+  font-weight: 400;
+}
+
+/* Following the menu by hand */
+.chase-controls {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.guess-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+}
+.guess-label {
+  margin-right: 6px;
+}
+.guess-row button {
+  width: 22px;
+  height: 24px;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+  background: transparent;
+  color: var(--ink-2);
+  border: 1px solid var(--rule);
+  cursor: pointer;
+}
+.guess-row button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--sheet);
+  border-color: var(--ink);
+}
+.menu-svg .edge.walked {
+  stroke: var(--amber);
+  stroke-width: 2.4;
+}
+.menu-svg .node.clash circle {
+  fill: var(--red);
+  stroke: var(--red);
+}
+.menu-svg .node.clash text {
+  fill: var(--sheet);
+}
+.menu-svg .node.clash text.node-value,
+.menu-svg .node text.node-value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  fill: var(--amber-ink);
+}
+.chase-log {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  max-height: 168px;
+  overflow-y: auto;
+  font-size: var(--fs-m);
+}
+.chase-log li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  padding: 2px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.chase-log .n {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-3);
+  width: 16px;
+}
+.chase-log em {
+  font-style: normal;
+  font-size: var(--fs-s);
+}
+.chase-log .bad em {
+  color: var(--red);
+}
+.chase-log .good em {
+  color: var(--teal-ink);
+}
+.note.verdict-bad {
+  border-left: 2px solid var(--red);
+  padding-left: 8px;
+}
+.note.verdict-good {
+  border-left: 2px solid var(--teal);
+  padding-left: 8px;
+}
+.fixed-row {
+  display: grid;
+  grid-template-columns: minmax(96px, auto) 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: var(--fs-s);
+}
+.fixed-row .alpha {
+  display: grid;
+  grid-template-columns: repeat(26, 1fr);
+  font-family: var(--font-mono);
+  text-align: center;
+  color: var(--ink-3);
+}
+.fixed-row .alpha i {
+  font-style: normal;
+  opacity: 0.45;
+}
+.fixed-row .alpha i.on {
+  opacity: 1;
+  color: var(--sheet);
+  background: var(--amber-ink);
+}
+[hidden] { display: none !important; }
+
+.stage-caption h1,
+.stage-caption p {
+  text-shadow: 0 0 10px var(--paper-glow), 0 0 3px var(--paper-glow);
 }

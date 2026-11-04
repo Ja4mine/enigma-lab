@@ -1,15 +1,14 @@
 import * as THREE from "three";
 
 /** Lettering used on keys, rings and drums (DIN-like Barlow). */
-export const LETTER_FONT = '"Barlow Semi Condensed", "Barlow Condensed", "Arial Narrow", sans-serif';
+export const LETTER_FONT = '"Barlow Semi Condensed", "Arial Narrow", sans-serif';
 
 export async function loadLetterFonts() {
   if (!("fonts" in document)) return;
   try {
     await Promise.all([
       document.fonts.load(`600 64px ${LETTER_FONT}`),
-      document.fonts.load(`500 64px "Barlow Condensed"`),
-      document.fonts.load(`500 32px "Lab Mono"`),
+      document.fonts.load(`400 32px "Courier Prime"`),
     ]);
   } catch {
     /* fall back to system faces */
@@ -26,7 +25,7 @@ function canvas(w: number, h: number) {
 function toTexture(c: HTMLCanvasElement, srgb = true) {
   const t = new THREE.CanvasTexture(c);
   if (srgb) t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
+  t.anisotropy = 16;
   t.needsUpdate = true;
   return t;
 }
@@ -89,6 +88,7 @@ export function oakTexture() {
     }
     const t = toTexture(c);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(1 / 32, 1 / 16); // UVs are in centimetres
     return t;
   });
 }
@@ -109,7 +109,7 @@ export function speckleTexture() {
     }
     const t = toTexture(c, false);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.repeat.set(4, 4);
+    t.repeat.set(0.3, 0.3);
     return t;
   });
 }

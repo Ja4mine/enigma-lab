@@ -42,7 +42,7 @@ export function buildBombe(initialOrder: Triple<RotorId>): BombeModel {
     return object;
   };
   const anchors: Record<string, Record<string, THREE.Object3D>> = {};
-  const paint = new THREE.MeshStandardMaterial({ color: "#26292c", roughness: 0.72, metalness: 0.25, bumpMap: M.crackle.bumpMap, bumpScale: 0.4 });
+  const paint = new THREE.MeshStandardMaterial({ color: "#3d3327", roughness: 0.7, metalness: 0.15, bumpMap: M.crackle.bumpMap, bumpScale: 0.4 });
   const trim = M.aluminium;
 
   /* ---------------- cabinet ---------------- */
@@ -64,7 +64,7 @@ export function buildBombe(initialOrder: Triple<RotorId>): BombeModel {
   // Lower panels with louvres.
   for (const x of [-60, 0, 60]) {
     cab.add(mesh(roundedBox(56, 20, 0.8, 0.3), M.castGrey, { pos: [x, 17, FRONT - 0.4] }));
-    for (let i = 0; i < 6; i++) cab.add(mesh(boxGeo(40, 0.6, 0.6), M.rubber, { pos: [x, 11 + i * 2.4, FRONT + 0.1] }));
+    for (let i = 0; i < 4; i++) cab.add(mesh(boxGeo(40, 1.4, 0.5), M.rubber, { pos: [x, 11.5 + i * 3.6, FRONT + 0.05], edges: false }));
   }
 
   /* ---------------- drums ---------------- */
@@ -121,7 +121,7 @@ export function buildBombe(initialOrder: Triple<RotorId>): BombeModel {
   });
   const capPlate = mesh(cylZ(DRUM_R, 0.35, 48), bodyColorMat.clone(), { pos: [0, 0, DRUM_T + 0.2], edgeAngle: 40 });
   drumCap.add(capPlate);
-  const capFace = mesh(new THREE.CircleGeometry(DRUM_R * 0.98, 48), capMat, { pos: [0, 0, DRUM_T + 0.39], edges: false });
+  const capFace = mesh(new THREE.CircleGeometry(DRUM_R * 0.98, 48), capMat, { pos: [0, 0, DRUM_T + 0.42], edges: false });
   drumCap.add(capFace);
   drumHub.add(mesh(cylZ(1.25, 1.4, 24), M.nickel, { pos: [0, 0, DRUM_T + 1.1] }));
   const clip = mesh(new THREE.TorusGeometry(1.7, 0.16, 8, 24, Math.PI * 1.3), M.steel, {
@@ -395,7 +395,7 @@ export function buildBombe(initialOrder: Triple<RotorId>): BombeModel {
       dummy.rotation.set(0, 0, angle);
       dummy.updateMatrix();
       bodies.setMatrixAt(i, dummy.matrix);
-      dummy.position.z = FRONT + 0.3 + DRUM_T + 0.06;
+      dummy.position.z = FRONT + 0.3 + DRUM_T + 0.08;
       dummy.updateMatrix();
       faces.setMatrixAt(i, dummy.matrix);
     });
