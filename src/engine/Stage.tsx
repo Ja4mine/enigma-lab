@@ -1,7 +1,10 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Suspense, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import * as THREE from "three";
 import { Canvas, invalidate as requestFrame, useFrame, useThree, type RootState, type ThreeEvent } from "@react-three/fiber";
-import { CameraControls, Environment, Lightformer } from "@react-three/drei";
+import { CameraControls, ContactShadows, Environment } from "@react-three/drei";
+import { EffectComposer, N8AO, ToneMapping, Vignette } from "@react-three/postprocessing";
+import { ToneMappingMode } from "postprocessing";
+import studioHdri from "@pmndrs/assets/hdri/studio.exr.js";
 import type CameraControlsImpl from "camera-controls";
 import { animate, cancelFrame, frame as motionFrame } from "motion";
 import type { Exhibit } from "./Exhibit";
@@ -32,10 +35,12 @@ export class Stage {
   /** Set once the canvas exists. */
   three!: RootState;
   controls: CameraControlsImpl | null = null;
-  shadowsDirty = true;
+  /** Frames still owed a shadow refresh; more than one survives passes that consume the flag. */
+  shadowsDirty = 3;
   theme: Theme = "light";
   readonly renderListeners = new Set<() => void>();
   private userMoved = false;
+  private hoverListeners = new Set<(part: string | null, x: number, y: number) => void>();
   pendingFrame: (() => void) | null = null;
   private exhibitListeners = new Set<() => void>();
 
@@ -77,7 +82,6 @@ export class Stage {
     if (this.exhibit === exhibit) return;
     this.exhibit = exhibit;
     if (exhibit) exhibit.onChange = () => this.invalidate(true);
-    this.shadowsDirty = true;
     this.exhibitListeners.forEach((cb) => cb());
     this.invalidate(true);
   }
@@ -91,7 +95,7 @@ export class Stage {
 
   /** Request a frame; pass `true` when geometry moved so shadows refresh. */
   invalidate(shadows = false) {
-    if (shadows) this.shadowsDirty = true;
+    if (shadows) this.shadowsDirty = 3;
     requestFrame();
   }
 
@@ -100,6 +104,20 @@ export class Stage {
     const step = ({ delta }: { delta: number }) => cb(Math.min(0.1, delta / 1000));
     motionFrame.update(step, true);
     return () => cancelFrame(step);
+  }
+
+  /** Pointer position over a part, in stage pixels. */
+  onPointerHover(cb: (part: string | null, x: number, y: number) => void) {
+    this.hoverListeners.add(cb);
+    return () => void this.hoverListeners.delete(cb);
+  }
+  notifyHover(part: string | null, x: number, y: number) {
+    for (const cb of this.hoverListeners) cb(part, x, y);
+  }
+
+  /** Width covered by the floating panel; the view is centred in what remains. */
+  get coveredRight() {
+    return parseFloat(getComputedStyle(this.element).getPropertyValue("--stage-right")) || 0;
   }
 
   /** Called after each drawn frame (callout layers reproject here). */
@@ -137,7 +155,7 @@ export class Stage {
     const current = controls.getTarget(new THREE.Vector3());
     const direction = (dir?.clone() ?? camera.position.clone().sub(current)).normalize();
     const vFov = THREE.MathUtils.degToRad(camera.fov);
-    const aspect = this.width / this.height; // the camera may not have seen a resize yet
+    const aspect = (this.width - this.coveredRight) / this.height; // the camera may not have seen a resize yet
     const hFov = 2 * Math.atan(Math.tan(vFov / 2) * aspect);
     const fov = Math.min(vFov, hFov);
     const distance = sphere.radius / Math.sin(fov / 2) / (opts.fill ?? 0.82);
@@ -185,18 +203,8 @@ export class Stage {
   }
 }
 
-/** Warm, soft studio: broad overhead softbox and low side strips, no hard shapes to mirror in flat metal. */
-function Studio({ intensity }: { intensity: number }) {
-  return (
-    <Environment resolution={256} frames={1} environmentIntensity={intensity}>
-      <color attach="background" args={["#8b745a"]} />
-      <Lightformer form="rect" intensity={2.4} color="#ffeccd" position={[0, 6, 1]} rotation-x={Math.PI / 2} scale={[14, 12, 1]} />
-      <Lightformer form="rect" intensity={1.2} color="#ffd9a8" position={[-7, 1.5, 3]} rotation-y={Math.PI / 2} scale={[10, 6, 1]} />
-      <Lightformer form="rect" intensity={0.8} color="#f4e4c8" position={[7, 1, -2]} rotation-y={-Math.PI / 2} scale={[10, 6, 1]} />
-      <Lightformer form="rect" intensity={0.7} color="#e8c9a0" position={[0, 2, 8]} rotation-y={Math.PI} scale={[14, 5, 1]} />
-    </Environment>
-  );
-}
+/** Backdrop colours match the paper of the interface, like a photographer's sweep. */
+const BACKDROP = { light: "#ded3bf", dark: "#241c13" } as const;
 
 function Rig({ stage }: { stage: Stage }) {
   const exhibit = useSyncExternalStore(stage.subscribeExhibit, () => stage.exhibit);
@@ -223,7 +231,6 @@ function Rig({ stage }: { stage: Stage }) {
   }, [stage, gl]);
 
   useEffect(() => {
-    gl.toneMappingExposure = dark ? 1.02 : 1.08;
     if (!controls.current) return;
     controls.current.minDistance = size * 0.1;
     controls.current.maxDistance = size * 4;
@@ -232,7 +239,7 @@ function Rig({ stage }: { stage: Stage }) {
   useEffect(() => {
     const light = key.current;
     if (!light) return;
-    light.position.set(-size * 0.42, size * 1.5, size * 0.72);
+    light.position.set(-size * 0.55, size * 1.25, size * 0.8);
     const cam = light.shadow.camera;
     cam.left = cam.bottom = -reach;
     cam.right = cam.top = reach;
@@ -255,9 +262,17 @@ function Rig({ stage }: { stage: Stage }) {
       camera.far = far;
       camera.updateProjectionMatrix();
     }
-    if (stage.shadowsDirty) {
+    if (stage.shadowsDirty > 0) {
       gl.shadowMap.needsUpdate = true;
-      stage.shadowsDirty = false;
+      stage.shadowsDirty--;
+      requestFrame();
+    }
+    // Keep the subject centred in the part of the stage the panel leaves free.
+    const w = stage.width,
+      h = stage.height,
+      shift = stage.coveredRight / 2;
+    if (camera.view?.offsetX !== shift || camera.view?.fullWidth !== w || camera.view?.fullHeight !== h) {
+      camera.setViewOffset(w, h, shift, 0, w, h);
     }
     camera.updateMatrixWorld();
     for (const cb of stage.renderListeners) cb();
@@ -274,11 +289,13 @@ function Rig({ stage }: { stage: Stage }) {
     const part = stage.pick(e.intersections);
     gl.domElement.style.cursor = part ? "pointer" : "";
     stage.onHover(part);
+    stage.notifyHover(part, e.nativeEvent.offsetX, e.nativeEvent.offsetY);
   };
   const onOut = (e: ThreeEvent<PointerEvent>) => {
     if (e.intersections.length) return;
     gl.domElement.style.cursor = "";
     stage.onHover(null);
+    stage.notifyHover(null, 0, 0);
   };
 
   return (
@@ -293,22 +310,26 @@ function Rig({ stage }: { stage: Stage }) {
         dollySpeed={0.9}
         maxPolarAngle={Math.PI * 0.62}
       />
-      <Studio intensity={dark ? 0.62 : 0.8} />
-      <hemisphereLight args={["#fff2d9", "#8a7558", dark ? 0.4 : 0.55]} />
+      <color attach="background" args={[BACKDROP[theme]]} />
+      <Suspense fallback={null}>
+        <Environment files={studioHdri} environmentIntensity={dark ? 0.8 : 1.05} environmentRotation={[0, 1.1, 0]} />
+      </Suspense>
+      <hemisphereLight args={["#fff0d8", "#8d785c", dark ? 0.35 : 0.5]} />
       <directionalLight
         ref={key}
-        color="#ffe9c9"
-        intensity={dark ? 1.5 : 1.9}
+        color="#ffe8c8"
+        intensity={dark ? 1.3 : 1.55}
         castShadow
         shadow-mapSize={[SHADOW_MAP, SHADOW_MAP]}
-        shadow-radius={3}
+        shadow-radius={5}
       />
-      <directionalLight color="#ffe4bd" intensity={0.7} position={[size * 0.5, size * 0.4, -size * 0.3]} />
-      <directionalLight color="#f6e6cc" intensity={0.55} position={[size * 0.1, size * 0.25, size]} />
-      <mesh rotation-x={-Math.PI / 2} scale={[size * 6, size * 6, 1]} receiveShadow>
+      <directionalLight color="#e9e4da" intensity={0.8} position={[size * 0.6, size * 0.3, -size * 0.4]} />
+      <directionalLight color="#fff0dc" intensity={dark ? 0.45 : 0.7} position={[size * 0.15, size * 0.22, size]} />
+      <mesh rotation-x={-Math.PI / 2} scale={[size * 8, size * 8, 1]} receiveShadow>
         <planeGeometry />
-        <shadowMaterial color="#3a2610" opacity={dark ? 0.42 : 0.2} />
+        <shadowMaterial color="#2b1c0c" opacity={dark ? 0.4 : 0.16} />
       </mesh>
+      <ContactShadows position={[0, 0.02, 0]} scale={size * 1.7} far={size * 0.12} blur={2.6} opacity={dark ? 0.7 : 0.42} resolution={1024} color="#2b1c0c" />
       {exhibit && (
         <primitive
           key={exhibit.root.uuid}
@@ -319,6 +340,11 @@ function Rig({ stage }: { stage: Stage }) {
           onPointerOut={onOut}
         />
       )}
+      <EffectComposer multisampling={4}>
+        <N8AO halfRes aoRadius={size * 0.018} distanceFalloff={0.5} intensity={1.5} quality="medium" color="#1c120a" />
+        <ToneMapping mode={ToneMappingMode.NEUTRAL} />
+        <Vignette offset={0.32} darkness={dark ? 0.5 : 0.32} />
+      </EffectComposer>
     </>
   );
 }
@@ -330,12 +356,11 @@ export function StageCanvas({ stage, onReady }: { stage: Stage; onReady: () => v
       frameloop="demand"
       shadows={{ type: THREE.PCFSoftShadowMap }}
       dpr={[1, 2]}
-      gl={{ antialias: true, alpha: true }}
-      camera={{ fov: 30, position: [60, 50, 90], near: 1, far: 5000 }}
+      gl={{ antialias: false }}
+      camera={{ fov: 26, position: [60, 50, 90], near: 1, far: 5000 }}
       resize={{ scroll: false }}
       onCreated={(state) => {
         stage.three = state;
-        state.gl.toneMapping = THREE.NeutralToneMapping;
         setCreated(true);
         onReady();
       }}

@@ -298,46 +298,50 @@ export function MenuSheet({
             ))}
           </div>
         </div>
-        <MenuGraph
-          menu={menu}
-          loop={null}
-          known={known}
-          usedLinks={new Set(steps.map((d) => d.link.index))}
-          clashLetter={last && last.clash !== null ? last.to : null}
-          height={340}
-        />
-        <ol className="chase-log" aria-live="polite">
-          {steps.map((d, i) => (
-            <li key={i} className={d.clash !== null ? "bad" : d.closesLoop ? "good" : ""}>
-              <span className="n">{i + 1}</span>
-              <Tex>{`S(\\mathrm{${L(d.to)}}) = E_{${d.link.index + 1}}(S(\\mathrm{${L(d.from)}})) = E_{${d.link.index + 1}}(\\mathrm{${L(d.input)}}) = \\mathrm{${L(d.value)}}`}</Tex>
-              {d.clash !== null && <em>{zh ? `但刚才已推出 S(${L(d.to)}) = ${L(d.clash)}，撞车` : `but S(${L(d.to)}) = ${L(d.clash)} already, a clash`}</em>}
-              {d.closesLoop && <em>{zh ? "绕回来，相符" : "back round, it agrees"}</em>}
-            </li>
-          ))}
-        </ol>
-        <div className="btn-row">
-          <button type="button" className="btn primary" disabled={finished} onClick={() => setShown((n) => n + 1)}>
-            {zh ? "推下一步" : "Next deduction"}
-          </button>
-          <button type="button" className="btn" disabled={finished} onClick={() => setShown(run.steps.length)}>
-            {zh ? "推到底" : "Finish"}
-          </button>
+        <div className="chase-body">
+          <MenuGraph
+            menu={menu}
+            loop={null}
+            known={known}
+            usedLinks={new Set(steps.map((d) => d.link.index))}
+            clashLetter={last && last.clash !== null ? last.to : null}
+            height={360}
+          />
+          <div className="chase-side">
+            <ol className="chase-log" aria-live="polite">
+              {steps.map((d, i) => (
+                <li key={i} className={d.clash !== null ? "bad" : d.closesLoop ? "good" : ""}>
+                  <span className="n">{i + 1}</span>
+                  <Tex>{`S(\\mathrm{${L(d.to)}}) = E_{${d.link.index + 1}}(S(\\mathrm{${L(d.from)}})) = E_{${d.link.index + 1}}(\\mathrm{${L(d.input)}}) = \\mathrm{${L(d.value)}}`}</Tex>
+                  {d.clash !== null && <em>{zh ? `但刚才已推出 S(${L(d.to)}) = ${L(d.clash)}，撞车` : `but S(${L(d.to)}) = ${L(d.clash)} already, a clash`}</em>}
+                  {d.closesLoop && <em>{zh ? "绕回来，相符" : "back round, it agrees"}</em>}
+                </li>
+              ))}
+            </ol>
+            <div className="btn-row">
+              <button type="button" className="btn primary" disabled={finished} onClick={() => setShown((n) => n + 1)}>
+                {zh ? "推下一步" : "Next deduction"}
+              </button>
+              <button type="button" className="btn" disabled={finished} onClick={() => setShown(run.steps.length)}>
+                {zh ? "推到底" : "Finish"}
+              </button>
+            </div>
+            {finished && (
+              <p className={`note ${run.failed ? "verdict-bad" : "verdict-good"}`}>
+                {run.failed
+                  ? zh
+                    ? `假设 S(${L(input)}) = ${L(guess)} 被证伪。我们没有用到插线板的任何信息。`
+                    : `The guess S(${L(input)}) = ${L(guess)} is disproved, without using anything about the plugboard.`
+                  : zh
+                    ? `所有边都走完，没有撞车：S(${L(input)}) = ${L(guess)} 活了下来。`
+                    : `Every edge used and no clash: S(${L(input)}) = ${L(guess)} survives.`}{" "}
+                {zh
+                  ? `这个转子位置上，26 个猜测有 ${26 - alive} 个撞车，${alive} 个活下来。`
+                  : `At this rotor position ${26 - alive} of the 26 guesses clash and ${alive} survive.`}
+              </p>
+            )}
+          </div>
         </div>
-        {finished && (
-          <p className={`note ${run.failed ? "verdict-bad" : "verdict-good"}`}>
-            {run.failed
-              ? zh
-                ? `假设 S(${L(input)}) = ${L(guess)} 被证伪。我们没有用到插线板的任何信息。`
-                : `The guess S(${L(input)}) = ${L(guess)} is disproved, without using anything about the plugboard.`
-              : zh
-                ? `所有边都走完，没有撞车：S(${L(input)}) = ${L(guess)} 活了下来。`
-                : `Every edge used and no clash: S(${L(input)}) = ${L(guess)} survives.`}{" "}
-            {zh
-              ? `这个转子位置上，26 个猜测有 ${26 - alive} 个撞车，${alive} 个活下来。`
-              : `At this rotor position ${26 - alive} of the 26 guesses clash and ${alive} survive.`}
-          </p>
-        )}
       </div>
     </div>
   );

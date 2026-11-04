@@ -14,7 +14,7 @@ import {
 } from "../../core/enigma";
 import { useLang, type Text } from "../../i18n";
 import { BillOfMaterials, PartDossier } from "../../ui/PartDossier";
-import { Callouts, StageCaption, StageView, Track, useProcedure } from "../../ui/stage-ui";
+import { Callouts, HoverTag, StageCaption, StageView, Track, useProcedure } from "../../ui/stage-ui";
 import { IconFrame, IconLabels, IconXray } from "../../ui/icons";
 import type { Crumb } from "../../App";
 import { buildEnigma, type EnigmaModel } from "./model";
@@ -102,7 +102,7 @@ export default function EnigmaWorkbench({ stage, onCrumbs }: { stage: Stage; onC
 
   const procedure = useProcedure(stage, exhibit, (step) => {
     if (tabRef.current !== "teardown") return;
-    if (step === 0) return frame(null, [0.42, 0.78, 1], 0.78);
+    if (step === 0) return frame(null, [0.5, 0.46, 1], 0.92);
     const view = exhibit.steps[step - 1]?.view;
     if (view) frame(view.focus ?? null, view.dir, view.fill ?? 0.7);
   });
@@ -113,7 +113,7 @@ export default function EnigmaWorkbench({ stage, onCrumbs }: { stage: Stage; onC
     const off = stage.onFrame((dt) => {
       if (model.update(dt)) stage.invalidate(true);
     });
-    frame(null, [0.42, 0.78, 1], 0.78, 0.01);
+    frame(null, [0.5, 0.46, 1], 0.92, 0.01);
     return () => {
       off();
       overlay.clear();
@@ -130,7 +130,7 @@ export default function EnigmaWorkbench({ stage, onCrumbs }: { stage: Stage; onC
       exhibit.setFocus(id === "enigma" ? null : id);
       if (move) {
         const meta = exhibit.meta(id);
-        frame(id === "enigma" ? null : id, meta?.view, id === "enigma" ? 0.78 : 0.55);
+        frame(id === "enigma" ? null : id, meta?.view, id === "enigma" ? 0.92 : 0.6);
       }
     },
     [exhibit, frame],
@@ -149,14 +149,19 @@ export default function EnigmaWorkbench({ stage, onCrumbs }: { stage: Stage; onC
 
   useEffect(() => {
     stage.onPick = (picked) => {
-      if (tabRef.current !== "teardown") return;
+      if (tabRef.current !== "teardown") {
+        // Clicking the model always inspects it, whichever panel is open.
+        if (!picked) return;
+        setFocus(nextLevel(picked));
+        setTab("teardown");
+        return;
+      }
       if (!picked) return select("enigma");
       const next = nextLevel(picked);
       if (next !== focus) select(next);
     };
     stage.onHover = (picked) => {
-      if (tabRef.current !== "teardown") return exhibit.setHover(null);
-      exhibit.setHover(picked ? nextLevel(picked) : null);
+      exhibit.setHover(picked && tabRef.current === "teardown" ? nextLevel(picked) : null);
     };
   }, [stage, exhibit, select, nextLevel, focus]);
 
@@ -228,7 +233,7 @@ export default function EnigmaWorkbench({ stage, onCrumbs }: { stage: Stage; onC
       model.setWiringVisible(wires);
       exhibit.setFocus(focus === "enigma" ? null : focus);
       procedure.seek(teardownProgress.current);
-      frame(focus === "enigma" ? null : focus, exhibit.meta(focus)?.view, focus === "enigma" ? 0.78 : 0.55);
+      frame(focus === "enigma" ? null : focus, exhibit.meta(focus)?.view, focus === "enigma" ? 0.92 : 0.6);
     } else if (from === "teardown") {
       teardownProgress.current = Math.round(exhibit.progress);
       exhibit.setFocus(null);
@@ -238,7 +243,7 @@ export default function EnigmaWorkbench({ stage, onCrumbs }: { stage: Stage; onC
       procedure.seek(OPERATE_POSE);
       model.setLoomVisible(false);
       liftEtw(1);
-      frameParts(["rotor-set", "etw", "lampboard", "keyboard"], [0.12, 0.62, 1], 0.76, { progress: OPERATE_POSE, lift: 1 });
+      frameParts(["rotor-set", "etw", "lampboard", "keyboard"], [0.22, 0.42, 1], 0.6, { progress: OPERATE_POSE, lift: 1 });
       if (trace) window.setTimeout(() => showSignal(trace, false), 1300);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -427,6 +432,7 @@ export default function EnigmaWorkbench({ stage, onCrumbs }: { stage: Stage; onC
   return (
     <div className="workbench">
       <StageView stage={stage}>
+        <HoverTag stage={stage} exhibit={exhibit} resolve={nextLevel} />
         <StageCaption
           kicker={
             tab === "teardown" ? (
@@ -458,7 +464,7 @@ export default function EnigmaWorkbench({ stage, onCrumbs }: { stage: Stage; onC
             onClick={() =>
               tab === "teardown"
                 ? frame(focus === "enigma" ? null : focus, undefined, 0.8)
-                : frameParts(["rotor-set", "etw", "lampboard", "keyboard"], [0.12, 0.62, 1], 0.76)
+                : frameParts(["rotor-set", "etw", "lampboard", "keyboard"], [0.22, 0.42, 1], 0.6)
             }
             title={zh ? "重新取景" : "Reframe"}
             aria-label={zh ? "重新取景" : "Reframe"}

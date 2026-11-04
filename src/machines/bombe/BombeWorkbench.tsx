@@ -24,7 +24,7 @@ import { encryptText } from "../../core/enigma";
 import { DEFAULT_SCENARIO, randomScenario, type Scenario } from "../../core/scenario";
 import { useLang, tx, type Text } from "../../i18n";
 import { BillOfMaterials, PartDossier } from "../../ui/PartDossier";
-import { Callouts, StageCaption, StageView, Track, useProcedure } from "../../ui/stage-ui";
+import { Callouts, HoverTag, StageCaption, StageView, Track, useProcedure } from "../../ui/stage-ui";
 import { IconFrame, IconLabels, IconPause, IconPlay, IconReset, IconShuffle } from "../../ui/icons";
 import { buildBombe, type BombeModel } from "./model";
 import { CribSheet, MenuGraph, MenuSheet, RelationSheet, StopSummary, WireGrid, coreText } from "./sheets";
@@ -279,7 +279,7 @@ export default function BombeWorkbench({ stage, onCrumbs }: { stage: Stage; onCr
       setFocus(id);
       setHot(null);
       exhibit.setFocus(id === "bombe" ? null : id);
-      if (move) frame(id === "bombe" ? null : id, exhibit.meta(id)?.view ?? [0.3, 0.2, 1], id === "bombe" ? 0.84 : 0.5);
+      if (move) frame(id === "bombe" ? null : id, exhibit.meta(id)?.view ?? [0.3, 0.2, 1], id === "bombe" ? 0.84 : 0.74);
     },
     [exhibit, frame],
   );
@@ -294,7 +294,13 @@ export default function BombeWorkbench({ stage, onCrumbs }: { stage: Stage; onCr
   );
   useEffect(() => {
     stage.onPick = (picked) => {
-      if (modeRef.current !== "teardown") return;
+      if (modeRef.current !== "teardown") {
+        // Clicking the model always inspects it, even from the walkthrough.
+        if (!picked) return;
+        setMode("teardown");
+        select(nextLevel(picked));
+        return;
+      }
       if (!picked) return select("bombe");
       const next = nextLevel(picked);
       if (next !== focus) select(next);
@@ -323,7 +329,7 @@ export default function BombeWorkbench({ stage, onCrumbs }: { stage: Stage; onCr
   useEffect(() => {
     if (mode === "teardown") {
       setRunning(false);
-      frame(focus === "bombe" ? null : focus, exhibit.meta(focus)?.view ?? [0.3, 0.18, 1], focus === "bombe" ? 0.84 : 0.5);
+      frame(focus === "bombe" ? null : focus, exhibit.meta(focus)?.view ?? [0.3, 0.18, 1], focus === "bombe" ? 0.84 : 0.74);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
@@ -385,6 +391,7 @@ export default function BombeWorkbench({ stage, onCrumbs }: { stage: Stage; onCr
   return (
     <div className="workbench">
       <StageView stage={stage} sheet={sheet}>
+        <HoverTag stage={stage} exhibit={exhibit} resolve={nextLevel} />
         <StageCaption
           kicker={
             mode === "teardown" ? (

@@ -109,14 +109,14 @@ function buildRotor(slot: Slot, type: RotorId): RotorRig {
   const numbers = Array.from({ length: 26 }, (_, i) => String(i + 1).padStart(2, "0"));
   const band = new THREE.MeshStandardMaterial({
     map: ringLabelTexture("ring-numbers", numbers, (i) => i * STEP, {
-      bg: "#c9ccce",
+      bg: "#d9d2bf",
       fg: "#1b1d20",
       size: 52,
       ticks: true,
       tickColor: "#55595e",
     }),
-    roughness: 0.42,
-    metalness: 0.65,
+    roughness: 0.6,
+    metalness: 0.35,
   });
   ring.add(mesh(cylX(4.45, 1.36, 104, true), band, { pos: [-0.15, 0, 0], edgeAngle: 40 }));
   ring.add(mesh(annulusX(4.45, 3.38, 0.04), M.aluminium, { pos: [-0.85, 0, 0] }));
@@ -155,7 +155,7 @@ function buildRotor(slot: Slot, type: RotorId): RotorRig {
 
   const thumb = group(`rotor-${slot}-thumb`);
   coreFrame.add(thumb);
-  thumb.add(mesh(gearX(44, 5.05, 4.78, 3.36, 0.58, false), M.darkSteel, { pos: [-1.18, 0, 0], edgeAngle: 50 }));
+  thumb.add(mesh(gearX(44, 5.05, 4.78, 3.36, 0.58, false), M.darkSteel, { pos: [-1.22, 0, 0], edgeAngle: 50 }));
 
   const ratchet = group(`rotor-${slot}-ratchet`);
   coreFrame.add(ratchet);
@@ -380,7 +380,7 @@ export function buildEnigma(initial: MachineConfig): EnigmaModel {
   const ukw = group("ukw", [UKW_X, 0, 0]);
   rotorSet.add(reg("ukw", ukw) as THREE.Group);
   ukw.add(mesh(cylX(3.9, 1.55, 64), M.bakelite, { edgeAngle: 40 }));
-  ukw.add(mesh(cylX(3.97, 0.42, 64), M.aluminium, { pos: [-0.56, 0, 0], edgeAngle: 40 }));
+  ukw.add(mesh(cylX(3.97, 0.42, 64), M.darkSteel, { pos: [-0.62, 0, 0], edgeAngle: 40 })); // proud of the body face
   ukw.add(
     instanced(cylX(0.11, 0.3, 10), M.brass, 26, (i, d) => {
       d.position.copy(onCircle(0.92, RC, i * STEP));
@@ -391,12 +391,12 @@ export function buildEnigma(initial: MachineConfig): EnigmaModel {
   ukwWiring.userData.alwaysSolid = true;
   ukw.add(ukwWiring);
   const ukwMarkMat = new THREE.MeshStandardMaterial({
-    map: glyphTexture("ukw-B", "B", { bg: "#16110d", fg: "#c0392b", size: 92 }),
-    roughness: 0.4,
+    map: glyphTexture("ukw-B", "B", { bg: "#16110d", fg: "#b9a98a", size: 92 }),
+    roughness: 0.7,
   });
   const ukwMark = mesh(new THREE.CircleGeometry(1.5, 40), ukwMarkMat, { edges: false });
   ukwMark.rotation.y = -Math.PI / 2;
-  ukwMark.position.set(-0.79, 0, 0);
+  ukwMark.position.set(-0.86, 0, 0);
   ukw.add(ukwMark);
   anchors.ukw = {
     contacts: anchor(ukw, onCircle(1.05, RC, 0.5)),
@@ -431,7 +431,7 @@ export function buildEnigma(initial: MachineConfig): EnigmaModel {
   const etw = group("etw", [ETW_X, AXIS_Y, AXIS_Z]);
   enigma.add(reg("etw", etw) as THREE.Group);
   etw.add(mesh(cylX(3.9, 1.3, 64), M.bakelite, { edgeAngle: 40 }));
-  etw.add(mesh(cylX(3.96, 0.3, 64), M.aluminium, { pos: [0.5, 0, 0], edgeAngle: 40 }));
+  etw.add(mesh(cylX(3.96, 0.3, 64), M.darkSteel, { pos: [0.56, 0, 0], edgeAngle: 40 })); // proud of the body face
   etw.add(
     instanced(cylX(0.24, 0.06, 18), M.brass, 26, (i, d) => {
       d.position.copy(onCircle(-0.68, RC, i * STEP));
@@ -538,18 +538,21 @@ export function buildEnigma(initial: MachineConfig): EnigmaModel {
       const x = layout(r, i, 2.75),
         z = 6.1 + r * 2.5;
       const key = group(`key-${ch}`, [x, 0, z]);
-      const capMat = new THREE.MeshPhysicalMaterial({
-        map: glyphTexture(`key-${ch}`, ch, { bg: "#15120f", fg: "#ece6d6", size: 76 }),
-        roughness: 0.3,
-        clearcoat: 0.6,
-      });
-      // Cylinder caps map UVs as a disc, so the glyph texture sits on top.
-      const capGeo = cylY(0.94, 0.34, 36);
-      const cap = new THREE.Mesh(capGeo, [M.bakelite, capMat, M.bakelite]);
-      cap.position.y = 10.85;
-      cap.rotation.y = Math.PI / 2;
-      cap.castShadow = true;
-      key.add(cap);
+      // Bakelite cap with the letter printed on a disc under its clear top.
+      const cap = mesh(cylY(0.94, 0.34, 36), M.bakelite, { pos: [0, 10.85, 0], edges: false });
+      const face = mesh(
+        new THREE.CircleGeometry(0.8, 36),
+        new THREE.MeshPhysicalMaterial({
+          map: glyphTexture(`key-${ch}`, ch, { bg: "#15120f", fg: "#e4dcc8", size: 76 }),
+          roughness: 0.6,
+          specularIntensity: 0.4,
+          clearcoat: 0.12,
+          clearcoatRoughness: 0.4,
+        }),
+        { pos: [0, 11.05, 0], edges: false },
+      );
+      face.rotation.x = -Math.PI / 2;
+      key.add(cap, face);
       key.add(mesh(annulusX(0.99, 0.9, 0.2, 36), M.nickel, { pos: [0, 10.82, 0] }).rotateZ(Math.PI / 2));
       key.add(mesh(cylY(0.17, 2.1, 12), M.steel, { pos: [0, 9.65, 0] }));
       keyboard.add(key);

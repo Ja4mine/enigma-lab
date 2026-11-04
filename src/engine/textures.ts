@@ -8,7 +8,7 @@ export async function loadLetterFonts() {
   try {
     await Promise.all([
       document.fonts.load(`600 64px ${LETTER_FONT}`),
-      document.fonts.load(`400 32px "Courier Prime"`),
+      document.fonts.load(`400 32px "IBM Plex Mono"`),
     ]);
   } catch {
     /* fall back to system faces */
@@ -47,71 +47,27 @@ const cached = (key: string, make: () => THREE.Texture) => {
   return cache.get(key)!;
 };
 
-/** Quarter-sawn oak: long grain lines, medullary flecks and pores. */
-export function oakTexture() {
-  return cached("oak", () => {
-    const { c, g } = canvas(1024, 512);
-    const r = rng(11);
-    g.fillStyle = "#9b7650";
-    g.fillRect(0, 0, 1024, 512);
-    for (let i = 0; i < 260; i++) {
-      const y0 = r() * 512,
-        amp = 2 + r() * 7,
-        freq = 0.002 + r() * 0.006,
-        phase = r() * 6;
-      const dark = r() < 0.6;
-      g.strokeStyle = dark
-        ? `rgba(70,45,24,${0.08 + r() * 0.22})`
-        : `rgba(205,170,120,${0.05 + r() * 0.12})`;
-      g.lineWidth = 0.6 + r() * 2.2;
-      g.beginPath();
-      for (let x = 0; x <= 1024; x += 16) {
-        const y = y0 + Math.sin(x * freq + phase) * amp + Math.sin(x * freq * 3.1) * amp * 0.25;
-        if (x === 0) g.moveTo(x, y);
-        else g.lineTo(x, y);
-      }
-      g.stroke();
-    }
-    for (let i = 0; i < 180; i++) {
-      // medullary rays: short, lighter, slightly glossy flakes
-      const x = r() * 1024,
-        y = r() * 512,
-        w = 14 + r() * 60;
-      g.fillStyle = `rgba(214,182,135,${0.08 + r() * 0.12})`;
-      g.beginPath();
-      g.ellipse(x, y, w, 1 + r() * 2.2, (r() - 0.5) * 0.08, 0, Math.PI * 2);
-      g.fill();
-    }
-    for (let i = 0; i < 4000; i++) {
-      g.fillStyle = `rgba(55,35,18,${0.1 + r() * 0.2})`;
-      g.fillRect(r() * 1024, r() * 512, 1 + r() * 3, 0.8);
-    }
-    const t = toTexture(c);
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.repeat.set(1 / 32, 1 / 16); // UVs are in centimetres
-    return t;
-  });
-}
-
-/** Grey speckle used as bump for wrinkle paint and cast metal. */
-export function speckleTexture() {
-  return cached("speckle", () => {
-    const { c, g } = canvas(256, 256);
-    const r = rng(5);
-    g.fillStyle = "#808080";
-    g.fillRect(0, 0, 256, 256);
-    for (let i = 0; i < 2600; i++) {
-      const v = Math.floor(60 + r() * 140);
-      g.fillStyle = `rgb(${v},${v},${v})`;
-      g.beginPath();
-      g.arc(r() * 256, r() * 256, 0.6 + r() * 2.4, 0, Math.PI * 2);
-      g.fill();
-    }
-    const t = toTexture(c, false);
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.repeat.set(0.3, 0.3);
-    return t;
-  });
+/** Height field of wrinkle (crackle) paint: dense worm-like ridges. */
+export function wrinkleHeight() {
+  const { c, g } = canvas(1024, 1024);
+  const r = rng(5);
+  g.fillStyle = "#6a6a6a";
+  g.fillRect(0, 0, 1024, 1024);
+  g.lineCap = "round";
+  for (let i = 0; i < 16000; i++) {
+    const x = r() * 1024,
+      y = r() * 1024,
+      a = r() * Math.PI * 2,
+      l = 6 + r() * 16,
+      v = Math.floor(120 + r() * 120);
+    g.strokeStyle = `rgba(${v},${v},${v},0.8)`;
+    g.lineWidth = 1.5 + r() * 2.2;
+    g.beginPath();
+    g.moveTo(x, y);
+    g.quadraticCurveTo(x + Math.cos(a) * l, y + Math.sin(a) * l, x + Math.cos(a + 1.4 * (r() - 0.5)) * l * 2, y + Math.sin(a + 1.4 * (r() - 0.5)) * l * 2);
+    g.stroke();
+  }
+  return c;
 }
 
 /**
