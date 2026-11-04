@@ -8,8 +8,40 @@ export type VintageSurface = "wood" | "brass" | "steel" | "bakelite" | "enamel";
 export interface VintageMaps {
   map: THREE.CanvasTexture;
   roughnessMap: THREE.CanvasTexture;
-  bumpMap: THREE.CanvasTexture;
-  bumpScale: number;
+  normalMap: THREE.CanvasTexture;
+}
+
+/**
+ * Normal map from a height canvas. Unlike a bump map, which differentiates in
+ * screen space and shimmers into patterns at a distance, this is mipmapped and
+ * simply fades to flat as the surface gets small on screen.
+ */
+export function normalFromHeight(source: HTMLCanvasElement, strength: number) {
+  const w = source.width,
+    h = source.height;
+  const data = source.getContext("2d")!.getImageData(0, 0, w, h).data;
+  const at = (x: number, y: number) => data[(((y + h) % h) * w + ((x + w) % w)) * 4];
+  const out = document.createElement("canvas");
+  out.width = w;
+  out.height = h;
+  const g = out.getContext("2d")!;
+  const img = g.createImageData(w, h);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const dx = ((at(x + 1, y) - at(x - 1, y)) / 255) * strength;
+      const dy = ((at(x, y + 1) - at(x, y - 1)) / 255) * strength;
+      const len = Math.hypot(dx, dy, 1);
+      const i = (y * w + x) * 4;
+      img.data[i] = (-dx / len) * 127.5 + 127.5;
+      img.data[i + 1] = (dy / len) * 127.5 + 127.5;
+      img.data[i + 2] = (1 / len) * 127.5 + 127.5;
+      img.data[i + 3] = 255;
+    }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(out);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 8;
+  return t;
 }
 
 function randomSequence(seed: number) {
@@ -20,7 +52,7 @@ function randomSequence(seed: number) {
 }
 
 function createSurface(kind: VintageSurface): VintageMaps {
-  const size = kind === "wood" ? 512 : 256;
+  const size = kind === "wood" ? 1024 : 512;
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = size;
   const relief = document.createElement("canvas");
@@ -244,8 +276,7 @@ function createSurface(kind: VintageSurface): VintageMaps {
   return {
     map: texture(canvas, true),
     roughnessMap: texture(roughness),
-    bumpMap: texture(relief),
-    bumpScale: kind === "wood" ? 0.012 : kind === "brass" ? 0.004 : 0.002,
+    normalMap: normalFromHeight(relief, kind === "wood" ? 2.2 : 1.1),
   };
 }
 

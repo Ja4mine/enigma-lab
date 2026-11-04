@@ -66,22 +66,44 @@ export const roundedBox = (w: number, h: number, d: number, r = 0.3, seg = 3) =>
 export const boxGeo = (w: number, h: number, d: number) =>
   cachedGeo(`b:${w}:${h}:${d}`, () => boxUv(new THREE.BoxGeometry(w, h, d)));
 
+/**
+ * Solid of revolution about +y with softly broken edges. Real machined parts
+ * never have a mathematically sharp corner; the small chamfer catches light.
+ */
+function chamferedCylinder(r: number, len: number, seg: number, rTop = r) {
+  const h = len / 2;
+  const b = Math.min(Math.min(r, rTop) * 0.14, len * 0.22, 0.32);
+  const eps = b * 0.02;
+  const pts: THREE.Vector2[] = [new THREE.Vector2(0, -h), new THREE.Vector2(r - b - eps, -h)];
+  const arc = (cx: number, cy: number, from: number, to: number) => {
+    for (let i = 0; i <= 4; i++) {
+      const a = from + ((to - from) * i) / 4;
+      pts.push(new THREE.Vector2(cx + Math.cos(a) * b, cy + Math.sin(a) * b));
+    }
+  };
+  arc(r - b, -h + b, -Math.PI / 2, 0);
+  pts.push(new THREE.Vector2(r, -h + b + eps), new THREE.Vector2(rTop, h - b - eps));
+  arc(rTop - b, h - b, 0, Math.PI / 2);
+  pts.push(new THREE.Vector2(rTop - b - eps, h), new THREE.Vector2(0, h));
+  return new THREE.LatheGeometry(pts, seg);
+}
+
 /** Cylinder whose axis is +x. */
 export const cylX = (r: number, len: number, seg = 48, open = false) =>
   cachedGeo(`cx:${r}:${len}:${seg}:${open}`, () => {
-    const g = new THREE.CylinderGeometry(r, r, len, seg, 1, open);
+    const g = open ? new THREE.CylinderGeometry(r, r, len, seg, 1, true) : chamferedCylinder(r, len, seg);
     g.rotateZ(-Math.PI / 2);
     return g;
   });
 
 /** Cylinder whose axis is +y. */
 export const cylY = (r: number, len: number, seg = 32, rTop = r) =>
-  cachedGeo(`cy:${r}:${rTop}:${len}:${seg}`, () => new THREE.CylinderGeometry(rTop, r, len, seg));
+  cachedGeo(`cy:${r}:${rTop}:${len}:${seg}`, () => chamferedCylinder(r, len, seg, rTop));
 
 /** Cylinder whose axis is +z. */
 export const cylZ = (r: number, len: number, seg = 32) =>
   cachedGeo(`cz:${r}:${len}:${seg}`, () => {
-    const g = new THREE.CylinderGeometry(r, r, len, seg);
+    const g = chamferedCylinder(r, len, seg);
     g.rotateX(Math.PI / 2);
     return g;
   });
@@ -94,8 +116,10 @@ export const annulusX = (rOuter: number, rInner: number, len: number, seg = 64) 
     const hole = new THREE.Path();
     hole.absarc(0, 0, rInner, 0, TAU, true);
     shape.holes.push(hole);
-    const g = new THREE.ExtrudeGeometry(shape, { depth: len, bevelEnabled: false, curveSegments: seg });
-    g.translate(0, 0, -len / 2);
+    const bevel = Math.min(len * 0.2, (rOuter - rInner) * 0.12, 0.05);
+    const depth = len - 2 * bevel;
+    const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelOffset: -bevel, bevelSegments: 2, curveSegments: seg });
+    g.translate(0, 0, -depth / 2);
     g.rotateY(Math.PI / 2);
     return g;
   });
@@ -129,8 +153,10 @@ export const gearX = (teeth: number, rOuter: number, rRoot: number, rInner: numb
     const hole = new THREE.Path();
     hole.absarc(0, 0, rInner, 0, TAU, true);
     shape.holes.push(hole);
-    const g = new THREE.ExtrudeGeometry(shape, { depth: len, bevelEnabled: false, curveSegments: 24 });
-    g.translate(0, 0, -len / 2);
+    const bevel = Math.min(len * 0.2, 0.05);
+    const depth = len - 2 * bevel;
+    const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelOffset: -bevel, bevelSegments: 2, curveSegments: 24 });
+    g.translate(0, 0, -depth / 2);
     g.rotateY(Math.PI / 2);
     return g;
   });

@@ -1,8 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "@fontsource-variable/source-serif-4";
-import "@fontsource/courier-prime/400.css";
-import "@fontsource/courier-prime/700.css";
+import "@fontsource-variable/inter";
+import "@fontsource/ibm-plex-mono/400.css";
+import "@fontsource/ibm-plex-mono/500.css";
 import "@fontsource/barlow-semi-condensed/600.css";
 import "katex/dist/katex.min.css";
 import "./styles/app.css";

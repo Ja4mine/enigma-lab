@@ -2,12 +2,14 @@
 
 The production app uses these packages. Their complete license files are distributed with the installed packages.
 
-- React, React DOM, Three.js, @react-three/fiber, @react-three/drei, d3-force, KaTeX, motion — MIT (d3-force: ISC).
+- React, React DOM, Three.js, @react-three/fiber, @react-three/drei, @react-three/postprocessing, KaTeX, motion — MIT.
+- d3-force — ISC. postprocessing — Zlib.
+- @pmndrs/assets (studio HDRI) — CC0-1.0.
 - lucide-react — ISC.
 
 ## Fonts
 
-Loaded from Fontsource packages, all under the SIL Open Font License 1.1: Source Serif 4, Courier Prime, Barlow Semi Condensed. KaTeX ships its own fonts under OFL 1.1.
+Loaded from Fontsource packages, all under the SIL Open Font License 1.1: Inter, Source Serif 4, IBM Plex Mono, Barlow Semi Condensed. KaTeX ships its own fonts under OFL 1.1.
 
 No source code or visual assets from cassette or RhineLabUI are included in this implementation. They are credited as visual and interaction references in RESEARCH.md.
 

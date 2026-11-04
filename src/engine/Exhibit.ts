@@ -296,21 +296,20 @@ export class Exhibit {
     const hoverSet = this.hoverId ? this.subtree(this.hoverId) : null;
     for (const [id, part] of this.parts) {
       const isHidden = hidden.has(id) || this.suppressed.has(id);
-      const ghost =
-        fading.has(id) ||
-        xray.has(id) ||
-        this.forcedXray.has(id) ||
-        (focusSet !== null && !focusSet.has(id));
+      const outside = focusSet !== null && !focusSet.has(id);
+      const ghost = fading.has(id) || xray.has(id) || this.forcedXray.has(id) || outside;
       for (const mesh of part.meshes) {
         mesh.visible = !isHidden && mesh.userData.hidden !== true;
         const keep = mesh.userData.alwaysSolid === true && !(focusSet && !focusSet.has(id));
-        mesh.material = ghost && !keep ? overlay.ghost : mesh.userData.material;
+        mesh.material = outside ? overlay.faint : ghost && !keep ? overlay.ghost : mesh.userData.material;
         mesh.castShadow = !ghost && mesh.userData.shadow !== false;
         mesh.receiveShadow = !ghost && mesh.userData.receive !== false;
       }
+      // Solid parts carry no outlines: ink lines are what make a render look drawn.
       for (const line of part.lines) {
-        line.material =
-          hoverSet?.has(id) && !ghost ? overlay.edgeHover : ghost ? overlay.edgeGhost : overlay.edge;
+        const hovered = !!hoverSet?.has(id) && !ghost;
+        line.visible = !outside && (hovered || ghost);
+        line.material = hovered ? overlay.edgeHover : overlay.edgeGhost;
       }
     }
   }

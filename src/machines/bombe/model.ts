@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { Exhibit } from "../../engine/Exhibit";
-import { DRUM_COLORS, materials } from "../../engine/materials";
+import { DRUM_COLORS, materials, wrinkle } from "../../engine/materials";
+import { vintageMaps } from "../../engine/vintage";
 import { STEP, anchor, boxGeo, cylZ, group, instanced, mesh, roundedBox, tubes } from "../../engine/shapes";
 import { drumFaceTexture, glyphTexture, plateTexture } from "../../engine/textures";
 import { ALPHABET, ROTORS, mod26, type RotorId, type Triple } from "../../core/enigma";
@@ -42,7 +43,7 @@ export function buildBombe(initialOrder: Triple<RotorId>): BombeModel {
     return object;
   };
   const anchors: Record<string, Record<string, THREE.Object3D>> = {};
-  const paint = new THREE.MeshStandardMaterial({ color: "#3d3327", roughness: 0.7, metalness: 0.15, bumpMap: M.crackle.bumpMap, bumpScale: 0.4 });
+  const paint = new THREE.MeshStandardMaterial({ ...wrinkle(0.05), color: "#35342c", roughness: 0.66, metalness: 0.1 });
   const trim = M.aluminium;
 
   /* ---------------- cabinet ---------------- */
@@ -63,8 +64,8 @@ export function buildBombe(initialOrder: Triple<RotorId>): BombeModel {
     cab.add(mesh(boxGeo(162, 1.2, 1.2), trim, { pos: [-14.7, y, FRONT - 0.1] }));
   // Lower panels with louvres.
   for (const x of [-60, 0, 60]) {
-    cab.add(mesh(roundedBox(56, 20, 0.8, 0.3), M.castGrey, { pos: [x, 17, FRONT - 0.4] }));
-    for (let i = 0; i < 4; i++) cab.add(mesh(boxGeo(40, 1.4, 0.5), M.rubber, { pos: [x, 11.5 + i * 3.6, FRONT + 0.05], edges: false }));
+    cab.add(mesh(roundedBox(56, 20, 0.8, 0.3), M.castGrey, { pos: [x, 17, FRONT - 0.15] })); // stands proud of the cabinet face
+    for (let i = 0; i < 4; i++) cab.add(mesh(boxGeo(40, 1.4, 0.5), M.rubber, { pos: [x, 11.5 + i * 3.6, FRONT + 0.3], edges: false }));
   }
 
   /* ---------------- drums ---------------- */
@@ -81,7 +82,7 @@ export function buildBombe(initialOrder: Triple<RotorId>): BombeModel {
     d.position.set(colX(s.col), rowY(s.bank, s.row), FRONT + 0.1);
   });
   cab.add(plateMesh);
-  const bodyMat = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.42, metalness: 0.08 });
+  const bodyMat = new THREE.MeshStandardMaterial({ map: vintageMaps("enamel").map, color: "#9c968a", roughness: 0.72, metalness: 0.05 });
   const bodies = new THREE.InstancedMesh(cylZ(DRUM_R, DRUM_T, 48), bodyMat, ordinary.length);
   const faceMat = new THREE.MeshStandardMaterial({
     map: drumFaceTexture("drum-face-clear", null, "#f4efe3"),
@@ -228,7 +229,7 @@ export function buildBombe(initialOrder: Triple<RotorId>): BombeModel {
         map: plateTexture(`register-${row}`, ALPHABET.slice(row * 13, row * 13 + 13).split("").join("   "), {
           w: 1024,
           h: 70,
-          bg: "#5d6266",
+          bg: "#4a4436",
           fg: "#f0ece2",
           size: 44,
           font: '"Lab Mono", monospace',
@@ -241,7 +242,7 @@ export function buildBombe(initialOrder: Triple<RotorId>): BombeModel {
   }
   const registerTitle = mesh(
     new THREE.PlaneGeometry(22, 2.4),
-    new THREE.MeshBasicMaterial({ map: plateTexture("register-title", "TEST REGISTER", { w: 512, h: 56, bg: "#5d6266", fg: "#f0ece2", size: 34 }) }),
+    new THREE.MeshBasicMaterial({ map: plateTexture("register-title", "TEST REGISTER", { w: 512, h: 56, bg: "#4a4436", fg: "#f0ece2", size: 34 }) }),
     { edges: false },
   );
   registerTitle.position.set(84, 117, FRONT + 0.45);

@@ -143,7 +143,7 @@ export const ENIGMA_PARTS: PartMeta[] = [
       { id: "plugs", label: tx("插线板（前翻板后）", "Plugboard (behind flap)") },
       { id: "lid", label: tx("箱盖", "Lid") },
     ],
-    view: [0.35, 0.75, 1],
+    view: [0.35, 0.48, 1],
   },
   {
     id: "case",
@@ -385,14 +385,14 @@ export function enigmaSteps(detail: Slot): Step[] {
       title: tx("掀起转子盖", "Lift the rotor cover"),
       caption: tx("盖上的三个小窗只显示数字环读数；打开后才看得到转子本体和拇指轮。", "The cover's three windows only show the ring numbers; open it to see the rotors and thumbwheels."),
       moves: [{ part: "rotor-cover", rotate: [-1.45, 0, 0] }],
-      view: { dir: [0.35, 0.8, 0.85], focus: "rotor-set", fill: 0.42 },
+      view: { dir: [0.35, 0.52, 0.95], focus: "rotor-set", fill: 0.42 },
     },
     {
       id: "lift",
       title: tx("取出转子组", "Lift out the rotor set"),
       caption: tx("松开反射器、把转子并拢，反射器、三枚转子和转子轴整组提起。输入轮留在机内。", "Release the reflector, press the rotors together and lift reflector, rotors and spindle out as one. The entry wheel stays put."),
       moves: [{ part: "rotor-set", offset: [0, 13.5, 2] }],
-      view: { dir: [0.3, 0.45, 1], focus: "rotor-set", fill: 0.5 },
+      view: { dir: [0.3, 0.36, 1], focus: "rotor-set", fill: 0.5 },
     },
     {
       id: "spread",
@@ -411,7 +411,7 @@ export function enigmaSteps(detail: Slot): Step[] {
       title: tx("取下一枚转子", "Take one rotor off"),
       caption: tx("把要检视的转子从轴上取下，放到工作台前方。可以在面板里切换左、中、右转子。", "Take the rotor to inspect off the spindle and bring it forward. Switch between left, middle and right in the panel."),
       moves: [{ part: rid, offset: out }],
-      view: { dir: [0.28, 0.42, 1], focus: rid, fill: 0.4 },
+      view: { dir: [0.28, 0.32, 1], focus: rid, fill: 0.4 },
     },
     {
       id: "explode",
@@ -432,7 +432,7 @@ export function enigmaSteps(detail: Slot): Step[] {
       caption: tx("盖板下是 26 只扁平灯泡。输出字母只是“哪一盏灯亮”，机器本身不记录任何东西。", "Under the plate sit 26 flat bulbs. The output is simply which lamp is lit; the machine records nothing."),
       moves: [{ part: "lamp-cover", offset: [0, 6, -3] }],
       hide: ["lamp-cover"],
-      view: { dir: [0.2, 1, 0.65], focus: "lampboard", fill: 0.6 },
+      view: { dir: [0.2, 0.68, 0.95], focus: "lampboard", fill: 0.6 },
     },
     {
       id: "inside",
@@ -440,7 +440,7 @@ export function enigmaSteps(detail: Slot): Step[] {
       caption: tx("面板与木箱改为透视：键杆、按键触点、步进棘爪和接往输入轮的线束都在面板下面。", "Top plate and case turn transparent: key levers, key contacts, stepping pawls and the loom to the entry wheel all live underneath."),
       moves: [],
       xray: ["chassis", "case", "rotor-cover"],
-      view: { dir: [0.75, 0.42, 0.85], focus: "enigma", fill: 0.74 },
+      view: { dir: [0.75, 0.34, 0.85], focus: "enigma", fill: 0.74 },
       callouts: [
         ["keyboard", "lever"],
         ["keyboard", "contact"],

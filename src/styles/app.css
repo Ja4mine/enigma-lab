@@ -8,13 +8,13 @@
 :root {
   color-scheme: light;
   --ground: #ded3bf;
-  --paper-glow: #ebe3d3;
-  --sheet: #efe7d8;
-  --sheet-2: #e5dbc8;
-  --ink: #34291c;
-  --ink-2: #5e5140;
-  --ink-3: #897a64;
-  --rule: #cfc2aa;
+  --paper-glow: #e8dfcd;
+  --sheet: #ece4d4;
+  --sheet-2: #e3d9c6;
+  --ink: #34312c;
+  --ink-2: #5f584c;
+  --ink-3: #8f8370;
+  --rule: #d3c8b4;
   --rule-strong: #a8967a;
   --amber: #b66b2d;
   --amber-ink: #8f4f1b;
@@ -32,18 +32,18 @@
   --focus: #8f4f1b;
   --shadow: 0 1px 0 rgba(70, 48, 22, 0.08), 0 10px 26px -16px rgba(70, 48, 22, 0.4);
 
-  --font-ui: "Source Serif 4 Variable", "Source Serif 4", "Songti SC", "Noto Serif CJK SC", "Source Han Serif SC",
-    "STSong", "SimSun", Georgia, serif;
+  --font-ui: "Inter Variable", Inter, -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --font-cond: var(--font-ui);
-  --font-mono: "Courier Prime", "Courier New", "Songti SC", "Noto Serif CJK SC", "STSong", monospace;
+  --font-read: "Source Serif 4 Variable", "Songti SC", "Noto Serif CJK SC", "Source Han Serif SC", "STSong", Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, "PingFang SC", monospace;
   --font-math: "KaTeX_Main", "Times New Roman", serif;
 
-  --fs-xs: 11.5px;
-  --fs-s: 12.5px;
-  --fs-m: 14px;
-  --fs-l: 16px;
-  --fs-xl: 21px;
-  --fs-xxl: 28px;
+  --fs-xs: 10.5px;
+  --fs-s: 11.5px;
+  --fs-m: 13px;
+  --fs-l: 14px;
+  --fs-xl: 20px;
+  --fs-xxl: 26px;
   --panel-w: 404px;
   --top-h: 52px;
 }
@@ -268,7 +268,7 @@ button {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: radial-gradient(120% 90% at 45% 38%, var(--paper-glow), var(--ground) 72%);
+  background: var(--ground);
 }
 .stage-canvas {
   position: absolute;
@@ -1976,4 +1976,320 @@ table.ledger {
 .stage-caption h1,
 .stage-caption p {
   text-shadow: 0 0 10px var(--paper-glow), 0 0 3px var(--paper-glow);
+}
+
+
+/* ==========================================================================
+   Archive bench: the model on a photographer's sweep, documents laid over it
+   ========================================================================== */
+:root {
+  --panel-w: 420px;
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .3 0 0 0 0 .24 0 0 0 0 .16 0 0 0 .1 0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.beat,
+.prose,
+.story-head h2,
+.chapter h3 {
+  font-family: var(--font-read);
+}
+.beat {
+  font-size: 14.5px;
+}
+.beat-tag,
+.story-step,
+.kicker,
+.section-head .aside {
+  font-family: var(--font-mono);
+  letter-spacing: 0.12em;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+.brand {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  line-height: 1.1;
+}
+.brand-name {
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 24px;
+  letter-spacing: -0.03em;
+}
+.brand small {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 400;
+  letter-spacing: 0.17em;
+  color: var(--ink-2);
+}
+.segmented,
+.segmented button + button {
+  border-color: var(--rule-strong);
+}
+.segmented {
+  border-radius: 0;
+}
+.segmented button[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.icon-button {
+  border-radius: 0;
+}
+.icon-button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--sheet);
+  border-color: var(--ink);
+}
+.stage-caption h1 {
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-size: 22px;
+}
+.stage-caption p {
+  font-size: var(--fs-m);
+}
+
+/* Callouts: a fine leader and a typed label, no pills. */
+.callouts .leader {
+  stroke: var(--ink);
+  stroke-width: 0.75;
+  opacity: 0.75;
+}
+.callouts .dot-ring {
+  fill: none;
+  stroke-width: 0.75;
+}
+.callout-label {
+  height: 20px;
+  border: 0;
+  border-bottom: 1px solid var(--ink);
+  border-radius: 0;
+  background: transparent;
+  padding: 0 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  text-shadow: 0 0 6px var(--ground), 0 0 2px var(--ground);
+}
+.callout-label .balloon {
+  width: auto;
+  height: auto;
+  margin: 0;
+  border: 0;
+  background: none;
+  color: var(--amber-ink);
+  font-size: 10px;
+}
+.callout-label:hover,
+.callout-label.hot {
+  background: transparent;
+  color: var(--amber-ink);
+  border-color: var(--amber-ink);
+}
+.callout-label:hover .balloon,
+.callout-label.hot .balloon {
+  background: none;
+}
+.hover-tag {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  pointer-events: none;
+  white-space: nowrap;
+  padding: 2px 7px;
+  background: var(--ink);
+  color: var(--sheet);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* Procedure track: a measuring scale rather than beads on a string. */
+.track {
+  background: color-mix(in srgb, var(--sheet) 88%, transparent);
+  background-image: var(--grain);
+  border: 0;
+  border-top: 1px solid var(--rule-strong);
+  border-radius: 0;
+  box-shadow: none;
+  padding: 7px 10px;
+}
+.track-rail .line {
+  background: var(--rule-strong);
+}
+.track-rail .fill {
+  top: 10px;
+  height: 1px;
+  background: var(--amber-ink);
+}
+.track-rail .node {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-3);
+  font-weight: 400;
+  font-size: 10px;
+}
+.track-rail .node::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 7px;
+  width: 1px;
+  height: 7px;
+  background: var(--ink-3);
+}
+.track-rail .node {
+  align-items: start;
+  line-height: 8px;
+}
+.track-rail .node.done {
+  background: transparent;
+  color: var(--ink);
+}
+.track-rail .node.done::after {
+  background: var(--ink);
+}
+.track-rail .node.current {
+  color: var(--amber-ink);
+  font-weight: 500;
+}
+.track-rail .node.current::after {
+  width: 3px;
+  margin-left: -1px;
+  background: var(--amber-ink);
+}
+.track-rail .node .tip {
+  top: 20px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+.track .buttons .icon-button {
+  border-color: transparent;
+}
+.sheet-card {
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  background-color: var(--sheet);
+  background-image: var(--grain);
+}
+.panel {
+  background-color: var(--sheet);
+  background-image: var(--grain);
+}
+.panel-tabs button {
+  font-size: var(--fs-m);
+}
+.section-head h3,
+.chase-log,
+.btn {
+  font-family: var(--font-ui);
+}
+.btn {
+  border-radius: 0;
+}
+
+@media (min-width: 821px) {
+  .app {
+    position: relative;
+    display: block;
+  }
+  .topbar {
+    position: absolute;
+    inset: 0 0 auto;
+    height: auto;
+    padding: 16px 24px 0 26px;
+    border: 0;
+    background: none;
+    pointer-events: none;
+  }
+  .topbar > * {
+    pointer-events: auto;
+  }
+  .workbench {
+    --stage-right: 464px;
+    position: absolute;
+    inset: 0;
+    display: block;
+  }
+  .stage {
+    position: absolute;
+    inset: 0;
+  }
+  .panel {
+    position: absolute;
+    z-index: 6;
+    top: 72px;
+    right: 22px;
+    bottom: 22px;
+    width: var(--panel-w);
+    border: 1px solid var(--rule);
+    border-top: 2px solid var(--amber);
+    box-shadow: 0 18px 40px -26px rgba(70, 48, 22, 0.55);
+  }
+  .stage-caption {
+    left: 26px;
+    top: 78px;
+  }
+  .stage-tools {
+    top: 78px;
+    right: calc(var(--stage-right) + 8px);
+  }
+  .track {
+    left: 26px;
+    right: calc(var(--stage-right) + 8px);
+    bottom: 22px;
+  }
+  .sheet-layer {
+    padding: 78px calc(var(--stage-right) + 8px) 96px 26px;
+  }
+}
+@media (min-width: 821px) and (max-width: 1100px) {
+  :root {
+    --panel-w: 360px;
+  }
+  .workbench {
+    --stage-right: 396px;
+  }
+}
+
+.callout-label {
+  background: color-mix(in srgb, var(--ground) 82%, transparent);
+  padding: 0 5px;
+  text-shadow: none;
+}
+.callout-label:hover,
+.callout-label.hot {
+  background: color-mix(in srgb, var(--ground) 92%, transparent);
+}
+.callouts .leader {
+  stroke: var(--sheet);
+  paint-order: stroke;
+  opacity: 0.9;
+}
+
+.track {
+  background-color: var(--sheet);
+}
+.chase-body {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(230px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.chase-side .chase-log {
+  max-height: 250px;
+  margin-top: 0;
+}
+.chase-side .chase-log li {
+  font-size: 12px;
+}
+@media (max-width: 1180px) {
+  .chase-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

@@ -26,6 +26,27 @@ export function StageView({
   );
 }
 
+/** Name of the part under the pointer, so it is clear what a click will open. */
+export function HoverTag({ stage, exhibit, resolve }: { stage: Stage; exhibit: Exhibit; resolve: (id: string) => string }) {
+  const { t } = useLang();
+  const el = useRef<HTMLDivElement>(null);
+  const [name, setName] = useState("");
+  useEffect(
+    () =>
+      stage.onPointerHover((part, x, y) => {
+        const meta = part ? exhibit.meta(resolve(part)) : null;
+        setName(meta ? t(meta.name) : "");
+        if (el.current) el.current.style.transform = `translate(${x + 14}px, ${y + 16}px)`;
+      }),
+    [stage, exhibit, resolve, t],
+  );
+  return (
+    <div ref={el} className="hover-tag" hidden={!name} aria-hidden="true">
+      {name}
+    </div>
+  );
+}
+
 export function StageCaption({ kicker, title, text }: { kicker?: ReactNode; title: string; text?: string }) {
   return (
     <div className="stage-caption" aria-live="polite">
@@ -85,7 +106,7 @@ export function Callouts({
     }
     const v = new THREE.Vector3();
     const place = () => {
-      const W = stage.width,
+      const W = stage.width - stage.coveredRight,
         H = stage.height;
       const top = W < 700 ? 64 : 112,
         bottom = H - (W < 700 ? 64 : 84);

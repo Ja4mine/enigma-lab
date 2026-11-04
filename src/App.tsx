@@ -4,7 +4,7 @@ import { LangContext, makeT, storeLang, storedLang, type Lang } from "./i18n";
 import { Stage, StageCanvas } from "./engine/Stage";
 import { loadLetterFonts } from "./engine/textures";
 import type { Theme } from "./engine/materials";
-import { BrandMark, IconClose, IconInfo, IconMoon, IconSun } from "./ui/icons";
+import { IconClose, IconInfo, IconMoon, IconSun } from "./ui/icons";
 import EnigmaWorkbench from "./machines/enigma/EnigmaWorkbench";
 
 const BombeWorkbench = lazy(() => import("./machines/bombe/BombeWorkbench"));
@@ -140,9 +140,8 @@ export default function App() {
       <div className="app">
         <header className="topbar">
           <div className="brand">
-            <BrandMark />
-            <span>Enigma Lab</span>
-            <small>{zh ? "拆解检视台" : "teardown bench"}</small>
+            <span className="brand-name">ENIGMA</span>
+            <small>ELECTROMECHANICAL ARCHIVE</small>
           </div>
           <div className="segmented" role="group" aria-label={zh ? "选择机器" : "Choose machine"}>
             <button type="button" aria-pressed={machine === "enigma"} onClick={() => switchMachine("enigma")}>
