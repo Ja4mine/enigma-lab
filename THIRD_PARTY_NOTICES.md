@@ -1,6 +1,13 @@
 # Third-party notices
 
-The production app uses React (MIT), Three.js (MIT), React Three Fiber (MIT), Drei (MIT), and Lucide (ISC). Their complete dependency license files are distributed with the installed packages.
+The production app uses these packages. Their complete license files are distributed with the installed packages.
+
+- React, React DOM, Three.js, @react-three/fiber, @react-three/drei, d3-force, KaTeX, motion — MIT (d3-force: ISC).
+- lucide-react — ISC.
+
+## Fonts
+
+Loaded from Fontsource packages, all under the SIL Open Font License 1.1: Source Serif 4, Courier Prime, Barlow Semi Condensed. KaTeX ships its own fonts under OFL 1.1.
 
 No source code or visual assets from cassette or RhineLabUI are included in this implementation. They are credited as visual and interaction references in RESEARCH.md.
 

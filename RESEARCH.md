@@ -105,3 +105,34 @@ RhineLabUI 的 README 说明壁纸版现已拆到 [RhineLabWallpaper](https://gi
 首轮验收建议关注：默认视图是否有参考项目的精密器物感；插线板、转子和反射器是否容易进入检视；按一个字母是否能看清「步进—正向—反射—返回—点灯」；环设置和双步进是否有可重复例子；轨迹与输出能否通过独立数据验证。之后再按用户偏好增加材质磨损、木箱附件、机械联动、声音与更细的制造结构。
 
 此文说明技术依据与核查结果；具体已完成功能、实际测试数量和运行方式，以同目录 README 和测试结果为准。
+
+## v2：三维层改为原生 three.js（2026-11-03）
+
+拆解检视需要对每个零件单独控制位姿、材质（实体 / X 光线稿）和标注锚点，并随拆解进度连续插值。本版把这些集中到 `src/engine/Exhibit.ts`：模型构建函数只负责产出零件对象、零件目录（图号、名称、作用、标注）和拆解步骤；`Stage` 负责共享画布、按需渲染、阴影按需刷新、相机取景与拾取。React 只管理界面状态。这样做去掉了 React Three Fiber / Drei / Lucide 三个运行时依赖，模型与界面的边界也更清楚。加密内核 `src/core/enigma.ts` 与其测试保持不变。
+
+字体改为随项目打包的子集：Barlow / Barlow Semi Condensed（OFL）用于界面与零件刻字，IBM Plex Mono 子集（OFL，按保留字体名条款改名为 “Lab Mono”）用于密文与数据对齐。
+
+## Turing–Welchman Bombe 资料核查（2026-11-03）
+
+本轮实际读取的资料与用到的事实：
+
+- [Wikipedia — Bombe](https://en.wikipedia.org/wiki/Bombe)：机体约 2.1 m 宽、1.98 m 高、0.61 m 深，约 1 吨；正面 108 个滚筒位，三组各 12 个竖排三联，每个三联模拟一台恩尼格玛；上层滚筒对应恩尼格玛左转子，并且是 Bombe 上转得最快的一层；滚筒颜色 I 红、II 栗、III 绿、IV 黄、V 棕；每个滚筒 104 根钢丝刷分 4 圈；第一台 “Victory” 无对角板，第二台 “Agnus Dei” 起加装；菜单示例与闭环对停机数的影响。
+- [TNMOC — Bombe Description](https://www.tnmoc.org/bh-10-bombe-description)：三组电气隔离、机械联动的滚筒；滚筒接线“外圈↔第三圈、内圈↔第二圈”两套，构成双端扰频器；每个位置同时测试 26 种插线；测试字母错误时电流到达其余 24 个字母而到不了第 25 个，正确时到不了任何其他字母，停机判据是“至少有一个感应继电器收不到电流”；对角板 26 插孔 × 26 触点、永久接线；commons 为 4–5 个并联插孔。
+- [Codes and Ciphers — The Turing/Welchman Bombe](https://codesandciphers.org.uk/virtualbp/tbombe/thebmb.htm)：“the top, fast, drum on the Bombe corresponds to the slow left hand drum on the Enigma machine”；背面每三列一组（对角板、commons、滚筒接口）；滚筒组编号方式与菜单接线示例。
+- [Codes and Ciphers — US report, Chapter III](https://codesandciphers.org.uk/documents/bmbrpt/bmbpg074.htm)：上层快、下层慢的滚筒命名；设计速度、电源与重量。
+- [John Harper — Bombe rebuild project](https://bombe.org.uk/?p=27)：指示滚筒在右侧，启停开关在右下；104 个双感应继电器；每分钟约 65 次进位，完整运行约 10.4 分钟。
+
+模型中的面板布局、插孔数量与电缆走向是依据上述描述的教学示意。滚筒“外圈↔第三圈 / 内圈↔第二圈”两套接线按转子正、反向接线绘制，电气上与扰频器置换一致。
+
+### 运行约定与验证
+
+- Bombe 判定的是转子线芯偏转（窗口 − 环设置），这是导线唯一能“看到”的量；第 i 条菜单边的扰频器在右转子上加偏移 i，并假设猜词范围内中转子不进位。
+- 默认电文（IV–V–III，UKW-B，环 24·14·17，起始 ACK，插线 AT BX CM DI EP HJ NR OS QU WY）的验证结果：真实转子排列下，开对角板停机 3 次、不开 787 次；60 种排列共 164 次停机，其中约 17 次能通过逐一假设检验，只有一次能试译出德文全文。这些数字由 `src/core/bombe.test.ts` 与本地脚本复核。
+
+## v2.1：回到现成库（2026-11-05）
+
+v2 的云端环境无法访问 npm 源，所以渲染循环、相机、拾取都是自写的。本版在本机环境恢复 React Three Fiber 与 drei，并引入 KaTeX、d3-force、motion、lucide-react 和 Fontsource，自写的只剩零件树位姿、模型和密码内核。美术回到 v1 的做旧暖黄风格，材质贴图沿用 v1 的 `createSurface`。
+
+转子和滚筒侧面的“花纹”是阴影失真：2048 贴图覆盖整台 Bombe，每纹素约 2.2 mm，而法线偏移固定为 0.2 mm。现在阴影视锥按模型尺寸拟合，法线偏移取 3 倍纹素。同时修掉两个同类问题：RoundedBoxGeometry 圆角处 UV 被挤压造成的条纹（改用按厘米的盒投影 UV），以及贴花与表面间距过小（加多边形偏移，近平面随视距调整）。
+
+对角板一步的论证用实测数据：默认菜单不开对角板时 787 次停机，其中 656 次恰有 1 根线没亮，只有 30 次是 1 根亮；接上后 3 次。
