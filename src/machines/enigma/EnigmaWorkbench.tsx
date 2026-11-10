@@ -43,7 +43,7 @@ export default function EnigmaWorkbench({ stage, onCrumbs }: { stage: Stage; onC
   const [tab, setTab] = useState<Tab>("teardown");
   const [focus, setFocus] = useState("enigma");
   const [hot, setHot] = useState<string | null>(null);
-  const [labels, setLabels] = useState(true);
+  const [labels, setLabels] = useState(false);
   const [wires, setWires] = useState(false);
   const [detail, setDetail] = useState<Slot>(model.detailRotor);
   const [playing, setPlaying] = useState(false);
@@ -94,7 +94,7 @@ export default function EnigmaWorkbench({ stage, onCrumbs }: { stage: Stage; onC
       stage.frame(box, dir ? new THREE.Vector3(...dir) : undefined, {
         fill,
         duration,
-        offset: wide ? new THREE.Vector2(-0.07, 0.07) : new THREE.Vector2(0, 0.04),
+        offset: wide ? new THREE.Vector2(-0.07, -0.045) : new THREE.Vector2(0, -0.06),
       });
     },
     [exhibit, stage],
@@ -360,13 +360,15 @@ export default function EnigmaWorkbench({ stage, onCrumbs }: { stage: Stage; onC
   const steps = exhibit.steps;
   const stepIndex = Math.round(procedure.progress);
   const caption =
-    tab === "teardown"
+    tab === "teardown" && focus !== "enigma"
+      ? { title: t(exhibit.meta(focus)!.name), text: exhibit.meta(focus)?.material ? t(exhibit.meta(focus)!.material!) : t(exhibit.meta(focus)!.summary) }
+    : tab === "teardown"
       ? stepIndex === 0
         ? {
-            title: zh ? "恩尼格玛 I 型 · 整机" : "Enigma I · assembled",
+            title: "Enigma I.",
             text: zh
-              ? "点击任意部件进入检视，或沿下方的拆解步骤一步步把机器拆开。"
-              : "Click any part to inspect it, or take the machine apart step by step along the track below.",
+              ? "恩尼格玛 I 型 · 在齿轮与电流之间，探寻秘密的构造。"
+              : "Between gears and currents. Explore the architecture of a secret.",
           }
         : { title: t(steps[stepIndex - 1].title), text: t(steps[stepIndex - 1].caption) }
       : tab === "operate"
@@ -430,14 +432,14 @@ export default function EnigmaWorkbench({ stage, onCrumbs }: { stage: Stage; onC
       : [];
 
   return (
-    <div className="workbench">
-      <StageView stage={stage}>
+    <div className="workbench" data-machine="enigma">
+      <StageView stage={stage} inspectionHint={tab === "teardown"}>
         <HoverTag stage={stage} exhibit={exhibit} resolve={nextLevel} />
         <StageCaption
           kicker={
             tab === "teardown" ? (
               <span>
-                {zh ? "拆解步骤" : "Step"} {String(stepIndex).padStart(2, "0")} / {String(steps.length).padStart(2, "0")}
+                {zh ? "馆藏 01 / 机械检视" : "COLLECTION 01 / MECHANICAL STUDY"} · {String(stepIndex).padStart(2, "0")} / {String(steps.length).padStart(2, "0")}
               </span>
             ) : (
               <span>{zh ? "恩尼格玛 I 型" : "Enigma I"}</span>

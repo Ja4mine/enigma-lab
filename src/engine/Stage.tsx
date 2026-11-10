@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import * as THREE from "three";
 import { Canvas, invalidate as requestFrame, useFrame, useThree, type RootState, type ThreeEvent } from "@react-three/fiber";
-import { CameraControls, ContactShadows, Environment } from "@react-three/drei";
+import { CameraControls, ContactShadows, Environment, useEnvironment } from "@react-three/drei";
 import { EffectComposer, N8AO, ToneMapping, Vignette } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 import studioHdri from "@pmndrs/assets/hdri/studio.exr.js";
@@ -204,7 +204,15 @@ export class Stage {
 }
 
 /** Backdrop colours match the paper of the interface, like a photographer's sweep. */
-const BACKDROP = { light: "#ded3bf", dark: "#241c13" } as const;
+const BACKDROP = { light: "#d6cbb5", dark: "#30312f" } as const;
+
+function StudioLighting({ stage, dark }: { stage: Stage; dark: boolean }) {
+  const texture = useEnvironment({ files: studioHdri });
+  // Environment textures resolve after the first demand-rendered frame. Always
+  // redraw once installed, so the initial metal finish matches later inspection.
+  useEffect(() => stage.invalidate(true), [stage, texture, dark]);
+  return <Environment map={texture} environmentIntensity={dark ? 0.65 : 0.85} environmentRotation={[0, 1.1, 0]} />;
+}
 
 function Rig({ stage }: { stage: Stage }) {
   const exhibit = useSyncExternalStore(stage.subscribeExhibit, () => stage.exhibit);
@@ -312,22 +320,23 @@ function Rig({ stage }: { stage: Stage }) {
       />
       <color attach="background" args={[BACKDROP[theme]]} />
       <Suspense fallback={null}>
-        <Environment files={studioHdri} environmentIntensity={dark ? 0.8 : 1.05} environmentRotation={[0, 1.1, 0]} />
+        <StudioLighting stage={stage} dark={dark} />
       </Suspense>
-      <hemisphereLight args={["#fff0d8", "#8d785c", dark ? 0.35 : 0.5]} />
+      <hemisphereLight args={["#fff0d6", "#626653", dark ? 0.65 : 0.8]} />
       <directionalLight
         ref={key}
-        color="#ffe8c8"
-        intensity={dark ? 1.3 : 1.55}
+        color={dark ? "#ffdfae" : "#ffe6c1"}
+        intensity={dark ? 2.2 : 2.1}
         castShadow
         shadow-mapSize={[SHADOW_MAP, SHADOW_MAP]}
         shadow-radius={5}
       />
-      <directionalLight color="#e9e4da" intensity={0.8} position={[size * 0.6, size * 0.3, -size * 0.4]} />
-      <directionalLight color="#fff0dc" intensity={dark ? 0.45 : 0.7} position={[size * 0.15, size * 0.22, size]} />
+      <directionalLight color="#cfdbd6" intensity={dark ? 1.25 : 1.0} position={[size * 0.6, size * 0.65, -size * 0.4]} />
+      <directionalLight color="#ffe9c4" intensity={dark ? 0.8 : 0.9} position={[-size * 0.3, size * 0.5, size]} />
+      <spotLight color="#ffd296" intensity={size * size * 1.8} position={[-size * 0.65, size * 1.1, size * 0.35]} angle={0.65} penumbra={1} distance={size * 4} decay={2} />
       <mesh rotation-x={-Math.PI / 2} scale={[size * 8, size * 8, 1]} receiveShadow>
         <planeGeometry />
-        <shadowMaterial color="#2b1c0c" opacity={dark ? 0.4 : 0.16} />
+        <shadowMaterial color="#0e0c08" opacity={dark ? 0.28 : 0.12} />
       </mesh>
       <ContactShadows position={[0, 0.02, 0]} scale={size * 1.7} far={size * 0.12} blur={2.6} opacity={dark ? 0.7 : 0.42} resolution={1024} color="#2b1c0c" />
       {exhibit && (
@@ -341,9 +350,9 @@ function Rig({ stage }: { stage: Stage }) {
         />
       )}
       <EffectComposer multisampling={4}>
-        <N8AO halfRes aoRadius={size * 0.018} distanceFalloff={0.5} intensity={1.5} quality="medium" color="#1c120a" />
+        <N8AO halfRes aoRadius={size * 0.012} distanceFalloff={0.5} intensity={1.2} quality="medium" color="#1c120a" />
         <ToneMapping mode={ToneMappingMode.NEUTRAL} />
-        <Vignette offset={0.32} darkness={dark ? 0.5 : 0.32} />
+        <Vignette offset={0.3} darkness={dark ? 0.4 : 0.2} />
       </EffectComposer>
     </>
   );

@@ -24,6 +24,28 @@ function surface(kind: VintageSurface, repeat = 1, normal = 1) {
 const std = (p: THREE.MeshStandardMaterialParameters) => new THREE.MeshStandardMaterial(p);
 const phys = (p: THREE.MeshPhysicalMaterialParameters) => new THREE.MeshPhysicalMaterial(p);
 
+/** Fine cloth weave: small fibre variation, without the enamel's oxidation spots. */
+function feltSurface() {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 128;
+  const ctx = canvas.getContext("2d")!;
+  const pixels = ctx.createImageData(128, 128);
+  for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {
+    const i = (y * 128 + x) * 4;
+    const fibre = ((x * 17 + y * 31) % 11) - 5;
+    const weave = (x % 4 < 2) !== (y % 4 < 2) ? 5 : -5;
+    pixels.data[i] = pixels.data[i + 1] = pixels.data[i + 2] = 210 + weave + fibre;
+    pixels.data[i + 3] = 255;
+  }
+  ctx.putImageData(pixels, 0, 0);
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.wrapS = map.wrapT = THREE.RepeatWrapping;
+  map.repeat.set(0.5, 0.5);
+  map.anisotropy = 8;
+  return map;
+}
+
 /** Wrinkle-finish paint, as on the real machine's lid and panels. */
 export function wrinkle(repeat: number) {
   const n = normalFromHeight(wrinkleHeight(), 3);
@@ -36,9 +58,9 @@ function create() {
   const paint = wrinkle(0.1);
   return {
     // Old varnished hardwood. Roughness comes from the map, so the varnish looks worn in places.
-    oak: phys({ ...surface("wood", 1 / 24, 0.7), color: "#a97c50", roughness: 1, clearcoat: 0.2, clearcoatRoughness: 0.45 }),
-    oakEnd: phys({ ...surface("wood", 1 / 24, 0.7), color: "#8c6642", roughness: 1, clearcoat: 0.16, clearcoatRoughness: 0.5 }),
-    felt: std({ ...surface("enamel", 1 / 16, 0.3), color: "#6e6c44", roughness: 1 }),
+    oak: phys({ ...surface("wood", 1 / 24, 0.5), color: "#dbc19c", roughness: 0.85, clearcoat: 0.32, clearcoatRoughness: 0.36 }),
+    oakEnd: phys({ ...surface("wood", 1 / 24, 0.5), color: "#b69b78", roughness: 0.9, clearcoat: 0.22, clearcoatRoughness: 0.42 }),
+    felt: std({ map: feltSurface(), color: "#686c58", roughness: 1 }),
     crackle: phys({ ...paint, color: "#24231d", roughness: 0.8, metalness: 0, specularIntensity: 0.35 }),
     castGrey: std({ ...surface("steel", 1 / 30, 0.5), color: "#57574c", roughness: 0.8, metalness: 0.45 }),
     bakelite: phys({ ...surface("bakelite", 0.2, 0.25), color: "#2c1e15", roughness: 0.75, clearcoat: 0.3, clearcoatRoughness: 0.4 }),
@@ -47,7 +69,7 @@ function create() {
     aluminium: std({ ...surface("steel", 0.6, 0.4), color: "#a29c8b", roughness: 0.95, metalness: 0.75 }),
     steel: std({ ...surface("steel", 0.15, 0.4), color: "#9a9584", roughness: 0.8, metalness: 1 }),
     darkSteel: std({ ...surface("steel", 0.15, 0.4), color: "#3f3b31", roughness: 0.85, metalness: 0.85 }),
-    brass: std({ ...surface("brass", 0.6, 0.4), color: "#c39a58", roughness: 0.8, metalness: 1 }),
+    brass: std({ ...surface("brass", 0.6, 0.28), color: "#d3b176", roughness: 0.46, metalness: 1 }),
     copper: std({ ...surface("brass", 0.15, 0.3), color: "#cf8a58", roughness: 0.7, metalness: 1 }),
     cable: std({ color: "#2f271f", roughness: 0.92 }),
     cableRed: std({ color: "#7d2d22", roughness: 0.85 }),
@@ -105,6 +127,7 @@ export function applyTheme(theme: Theme) {
   overlay.ghost.color.set(dark ? "#b39f7e" : "#fff6e4");
   overlay.ghost.opacity = dark ? 0.08 : 0.2;
   overlay.faint.color.set(dark ? "#b39f7e" : "#fff6e4");
+  overlay.faint.opacity = dark ? 0.018 : 0.035;
   const ink = dark ? "#efe3cc" : "#2b2115";
   overlay.edge.color.set(dark ? "#000000" : ink);
   overlay.edge.opacity = dark ? 0.5 : 0.34;

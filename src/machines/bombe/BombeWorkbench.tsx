@@ -67,11 +67,11 @@ export default function BombeWorkbench({ stage, onCrumbs }: { stage: Stage; onCr
   const zh = lang === "zh";
   const model = useMemo(getModel, []);
   const exhibit = model.exhibit;
-  const [mode, setMode] = useState<Mode>("break");
+  const [mode, setMode] = useState<Mode>("teardown");
   const [walk, setWalk] = useState(0);
   const [focus, setFocus] = useState("bombe");
   const [hot, setHot] = useState<string | null>(null);
-  const [labels, setLabels] = useState(true);
+  const [labels, setLabels] = useState(false);
   const modeRef = useRef(mode);
   modeRef.current = mode;
 
@@ -378,10 +378,12 @@ export default function BombeWorkbench({ stage, onCrumbs }: { stage: Stage; onCr
   const stepIndex = Math.round(procedure.progress);
   const tdSteps = exhibit.steps;
   const caption =
-    mode === "teardown"
+    mode === "teardown" && focus !== "bombe"
+      ? { title: t(exhibit.meta(focus)!.name), text: exhibit.meta(focus)?.material ? t(exhibit.meta(focus)!.material!) : t(exhibit.meta(focus)!.summary) }
+    : mode === "teardown"
       ? stepIndex === 0
         ? {
-            title: zh ? "Bombe · 正面" : "The Bombe, front",
+            title: "The Bombe.",
             text: zh ? "点击滚筒、指示器或背门进入检视，或沿下方步骤拆开一个滚筒。" : "Click a drum, the indicator or the gate to inspect it, or follow the steps below to take a drum apart.",
           }
         : { title: t(tdSteps[stepIndex - 1].title), text: t(tdSteps[stepIndex - 1].caption) }
@@ -389,14 +391,14 @@ export default function BombeWorkbench({ stage, onCrumbs }: { stage: Stage; onCr
   const calloutPart = mode === "teardown" ? (focus !== "bombe" ? focus : stepIndex >= 1 && stepIndex <= 2 ? "drum" : stepIndex === 3 || stepIndex === 4 ? "gate" : stepIndex === 5 ? "indicator" : "bombe") : walk === 0 ? "bombe" : walk === 7 ? "indicator" : null;
 
   return (
-    <div className="workbench">
-      <StageView stage={stage} sheet={sheet}>
+    <div className="workbench" data-machine="bombe">
+      <StageView stage={stage} sheet={sheet} inspectionHint={mode === "teardown"}>
         <HoverTag stage={stage} exhibit={exhibit} resolve={nextLevel} />
         <StageCaption
           kicker={
             mode === "teardown" ? (
               <span>
-                {zh ? "拆解步骤" : "Step"} {String(stepIndex).padStart(2, "0")} / {String(tdSteps.length).padStart(2, "0")}
+                {zh ? "馆藏 02 / 机械检视" : "COLLECTION 02 / MECHANICAL STUDY"} · {String(stepIndex).padStart(2, "0")} / {String(tdSteps.length).padStart(2, "0")}
               </span>
             ) : (
               <span>

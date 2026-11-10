@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { Exhibit } from "../../engine/Exhibit";
 import { DRUM_COLORS, materials, wrinkle } from "../../engine/materials";
 import { vintageMaps } from "../../engine/vintage";
+import { fasteners, seamRings } from "../../engine/fittings";
 import { STEP, anchor, boxGeo, cylZ, group, instanced, mesh, roundedBox, tubes } from "../../engine/shapes";
 import { drumFaceTexture, glyphTexture, plateTexture } from "../../engine/textures";
 import { ALPHABET, ROTORS, mod26, type RotorId, type Triple } from "../../core/enigma";
@@ -66,7 +67,66 @@ export function buildBombe(initialOrder: Triple<RotorId>): BombeModel {
   for (const x of [-60, 0, 60]) {
     cab.add(mesh(roundedBox(56, 20, 0.8, 0.3), M.castGrey, { pos: [x, 17, FRONT - 0.15] })); // stands proud of the cabinet face
     for (let i = 0; i < 4; i++) cab.add(mesh(boxGeo(40, 1.4, 0.5), M.rubber, { pos: [x, 11.5 + i * 3.6, FRONT + 0.3], edges: false }));
+    // Pressed louvre lips catch the lamp without filling the dark opening.
+    for (let i = 0; i < 4; i++)
+      cab.add(
+        mesh(roundedBox(40, 0.45, 0.6, 0.1), paint, {
+          pos: [x, 12.25 + i * 3.6, FRONT + 0.65],
+          edges: false
+  }),
+      );
+    fasteners(
+      cab,
+      [
+        [x - 25, 9.5, FRONT + 0.26],
+        [x + 25, 9.5, FRONT + 0.26],
+        [x - 25, 24.5, FRONT + 0.26],
+        [x + 25, 24.5, FRONT + 0.26],
+      ],
+      M.nickel,
+      M.darkSteel,
+      0.42,
+      [0, 0, 1],);
   }
+  // Cabinet inventory: recessed panel margins, bolted bank rails, pressed
+  // ventilation panels and a screwed manufacturer plate. All attach to cab.
+  for (const x of [-99, 68])
+    cab.add(
+      mesh(roundedBox(0.8, 157, 0.65, 0.15), M.darkSteel, {
+        pos: [x, 110, FRONT + 0.2],
+      }),
+    );
+  const railScrews: [number, number, number][] = [];
+  for (const y of [30.5, 84.5, 135.5, 189.5])
+    for (const x of [-92, -41, 10, 61]) railScrews.push([x, y, FRONT + 0.52]);
+  fasteners(cab, railScrews, M.nickel, M.darkSteel, 0.38, [0, 0, 1]);
+  const cabinetLabel = mesh(
+    new THREE.PlaneGeometry(34, 3.4),
+    new THREE.MeshStandardMaterial({
+      map: plateTexture("bombe-cabinet-name", "B O M B E", {
+        w: 1024,
+        h: 100,
+        bg: "#b19b69",
+        fg: "#24251f",
+        size: 63,
+      }),
+      roughness: 0.67,
+      metalness: 0.35,
+    }),
+    { pos: [-14.7, 194, FRONT + 0.6], edges: false },
+  );
+  cab.add(cabinetLabel);
+  fasteners(
+    cab,
+    [
+      [-30.4, 194, FRONT + 0.61],
+      [1, 194, FRONT + 0.61],
+    ],
+    M.brass,
+    M.darkSteel,
+    0.28,
+    [0, 0, 1],
+  );
 
   /* ---------------- drums ---------------- */
   // 107 ordinary drums as instanced bodies + faces; drum 0 is a detailed part.
@@ -100,6 +160,29 @@ export function buildBombe(initialOrder: Triple<RotorId>): BombeModel {
     m.userData.noEdges = true;
   }
   drums.add(bodies, faces, knobs);
+  // Rolled rim seams and spindle washers are rotationally symmetric; keeping
+  // them instanced and stationary preserves the original drum animation path.
+  seamRings(
+    drums,
+    ordinary.map((s): [number, number, number] => [
+      colX(s.col),
+      rowY(s.bank, s.row),
+      FRONT + 0.3 + DRUM_T - 0.1,
+    ]),
+    DRUM_R - 0.08,
+    0.1,
+    M.darkSteel,
+  );
+  seamRings(
+    drums,
+    ordinary.map((s): [number, number, number] => [
+      colX(s.col),
+      rowY(s.bank, s.row),
+      FRONT + DRUM_T + 0.31,
+    ]),
+    1.7,
+    0.14,
+    M.nickel,);
 
   /* The detailed drum (bank 0, column 0, top row). */
   const drumX = colX(0),
@@ -113,7 +196,9 @@ export function buildBombe(initialOrder: Triple<RotorId>): BombeModel {
   const drumBrushes = reg("drum-brushes", group("drum-brushes"));
   const drumHub = reg("drum-hub", group("drum-hub"));
   drumSpin.add(drumBody, drumCap, drumBrushes, drumHub);
-  const bodyColorMat = new THREE.MeshStandardMaterial({ color: DRUM_COLORS[initialOrder[0]], roughness: 0.42 });
+  const bodyColorMat = new THREE.MeshStandardMaterial({
+    map: vintageMaps("enamel").map, color: DRUM_COLORS[initialOrder[0]], roughness: 0.64,
+    metalness: 0.08 });
   drumBody.add(mesh(cylZ(DRUM_R, DRUM_T - 0.6, 48), bodyColorMat, { pos: [0, 0, DRUM_T / 2], edgeAngle: 40 }));
   const capMat = new THREE.MeshStandardMaterial({
     map: drumFaceTexture("drum-face-clear", null, "#f4efe3"),
@@ -124,6 +209,27 @@ export function buildBombe(initialOrder: Triple<RotorId>): BombeModel {
   drumCap.add(capPlate);
   const capFace = mesh(new THREE.CircleGeometry(DRUM_R * 0.98, 48), capMat, { pos: [0, 0, DRUM_T + 0.42], edges: false });
   drumCap.add(capFace);
+  seamRings(
+    drumBody,
+    [
+      [0, 0, 0.48],
+      [0, 0, DRUM_T - 0.1],
+    ],
+    DRUM_R - 0.08,
+    0.1,
+    M.darkSteel,
+  );
+  seamRings(drumHub, [[0, 0, DRUM_T + 0.43]], 1.7, 0.14, M.nickel);
+  fasteners(
+    drumCap,
+    [0, 1, 2].map((i): [number, number, number] => {
+      const angle = (i * Math.PI * 2) / 3;
+      return [Math.sin(angle) * 2.7, Math.cos(angle) * 2.7, DRUM_T + 0.44];
+    }),
+    M.brass,
+    M.darkSteel,
+    0.19,
+    [0, 0, 1]);
   drumHub.add(mesh(cylZ(1.25, 1.4, 24), M.nickel, { pos: [0, 0, DRUM_T + 1.1] }));
   const clip = mesh(new THREE.TorusGeometry(1.7, 0.16, 8, 24, Math.PI * 1.3), M.steel, {
     pos: [0, 0, DRUM_T + 1.6],
@@ -190,6 +296,18 @@ export function buildBombe(initialOrder: Triple<RotorId>): BombeModel {
   bombe.add(reg("indicator", indicator));
   indicator.add(mesh(roundedBox(30, 74, 1.2, 0.5), M.castGrey, { pos: [84, 140, FRONT - 0.2] }));
   indicator.add(mesh(boxGeo(30.5, 0.8, 1.4), trim, { pos: [84, 177.5, FRONT] }));
+  fasteners(
+    indicator,
+    [
+      [71.5, 105.5, FRONT + 0.41],
+      [96.5, 105.5, FRONT + 0.41],
+      [71.5, 174.5, FRONT + 0.41],
+      [96.5, 174.5, FRONT + 0.41],
+    ],
+    M.nickel,
+    M.darkSteel,
+    0.4,
+    [0, 0, 1],);
   const indicatorDrums: THREE.Group[] = [];
   const indicatorFace = new THREE.MeshStandardMaterial({
     map: drumFaceTexture("indicator-face", "#e9e3d4", "#1b1c1e"),
@@ -200,6 +318,7 @@ export function buildBombe(initialOrder: Triple<RotorId>): BombeModel {
     g.add(mesh(cylZ(4.6, 2.2, 40), M.darkSteel, { pos: [0, 0, 1.1] }));
     const face = mesh(new THREE.CircleGeometry(4.5, 40), indicatorFace, { pos: [0, 0, 2.25], edges: false });
     g.add(face);
+    seamRings(g, [[0, 0, 2.21]], 4.5, 0.13, M.nickel);
     indicator.add(g);
     indicatorDrums.push(g);
     // Fixed pointer above each indicator drum.
@@ -251,8 +370,26 @@ export function buildBombe(initialOrder: Triple<RotorId>): BombeModel {
   const switches = group("switches");
   indicator.add(switches);
   switches.add(mesh(roundedBox(30, 22, 1.2, 0.5), M.castGrey, { pos: [84, 52, FRONT - 0.2] }));
+  fasteners(
+    switches,
+    [
+      [71.5, 43.5, FRONT + 0.41],
+      [96.5, 43.5, FRONT + 0.41],
+      [71.5, 60.5, FRONT + 0.41],
+      [96.5, 60.5, FRONT + 0.41],
+    ],
+    M.nickel,
+    M.darkSteel,
+    0.34,
+    [0, 0, 1],);
   for (let i = 0; i < 3; i++) {
     switches.add(mesh(cylZ(1.6, 0.8, 24), M.nickel, { pos: [75 + i * 9, 56, FRONT + 0.6] }));
+    seamRings(
+      switches,
+      [[75 + i * 9, 56, FRONT + 1.03]],
+      1.23,
+      0.14,
+      M.darkSteel);
     const lever = mesh(roundedBox(0.7, 3.4, 0.7, 0.2), M.nickel, { pos: [75 + i * 9, 57.4, FRONT + 1.6] });
     lever.rotation.x = -0.5;
     switches.add(lever);
@@ -285,6 +422,40 @@ export function buildBombe(initialOrder: Triple<RotorId>): BombeModel {
   gate.add(mesh(boxGeo(192, 4, 2.4), trim, { pos: [96, 18, 0] }));
   gate.add(mesh(boxGeo(4, 176, 2.4), trim, { pos: [2, 104, 0] }));
   gate.add(mesh(boxGeo(4, 176, 2.4), trim, { pos: [190, 104, 0] }));
+  for (const y of [32, 104, 176]) {
+    gate.add(
+      mesh(roundedBox(6.5, 5, 0.65, 0.2), M.darkSteel, {
+        pos: [3.2, y, -1.55],
+      }),
+    );
+    const hinge = mesh(cylZ(1.2, 5, 24), M.nickel, { pos: [0, y, 0] });
+    hinge.rotation.x = Math.PI / 2;
+    gate.add(hinge);
+    fasteners(
+      gate,
+      [
+        [3.5, y - 1.5, -1.9],
+        [3.5, y + 1.5, -1.9],
+      ],
+      M.brass,
+      M.darkSteel,
+      0.34,
+      [0, 0, -1],
+    );
+  }
+  fasteners(
+    gate,
+    [
+      [7, 190, -1.21],
+      [185, 190, -1.21],
+      [7, 18, -1.21],
+      [185, 18, -1.21],
+    ],
+    M.nickel,
+    M.darkSteel,
+    0.52,
+    [0, 0, -1],
+  );
   const stripX = (k: number) => 22 + k * 19.5;
   const diagonal = group("diagonal-board");
   gate.add(reg("diagonal-board", diagonal));
@@ -308,6 +479,26 @@ export function buildBombe(initialOrder: Triple<RotorId>): BombeModel {
       instanced(jackGeo, kind === 0 ? new THREE.MeshStandardMaterial({ color: "#3a2416", roughness: 0.5 }) : jackMat, jacks.length, (i, d) => {
         d.position.copy(jacks[i]);
       }),
+    );
+    seamRings(
+      target,
+      jacks.map((p): [number, number, number] => [p.x, p.y, -2.02]),
+      0.96,
+      0.13,
+      M.brass,
+    );
+    fasteners(
+      target,
+      [
+        [stripX(k) - 2.8, 183, -1.31],
+        [stripX(k) + 2.8, 183, -1.31],
+        [stripX(k) - 2.8, 27, -1.31],
+        [stripX(k) + 2.8, 27, -1.31],
+      ],
+      M.nickel,
+      M.darkSteel,
+      0.28,
+      [0, 0, -1],
     );
   }
   anchors.gate = {
