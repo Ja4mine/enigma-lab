@@ -140,15 +140,22 @@ export default function App() {
       <div className="app">
         <header className="topbar">
           <div className="brand">
-            <span className="brand-name">ENIGMA</span>
-            <small>ELECTROMECHANICAL ARCHIVE</small>
+            <svg className="brand-mark" viewBox="0 0 44 44" fill="none" aria-hidden="true">
+              <circle cx="22" cy="22" r="18" />
+              <circle cx="22" cy="22" r="12" />
+              <circle cx="22" cy="22" r="3" />
+              {Array.from({ length: 12 }, (_, i) => <path key={i} d="M22 2v5M22 37v5" transform={`rotate(${i * 15} 22 22)`} />)}
+              <path d="M10 22h9m6 0h9M22 10v9m0 6v9" />
+            </svg>
+            <div className="brand-wordmark"><span className="brand-name">ENIGMA <em>LAB</em></span>
+              <small>{zh ? "机电密码 · 交互档案" : "THE CIPHER MACHINE ARCHIVE"}</small></div>
           </div>
-          <div className="segmented" role="group" aria-label={zh ? "选择机器" : "Choose machine"}>
+          <div className="segmented machine-selector" role="group" aria-label={zh ? "选择机器" : "Choose machine"}>
             <button type="button" aria-pressed={machine === "enigma"} onClick={() => switchMachine("enigma")}>
-              Enigma I
+              <span className="machine-index">01</span> Enigma I
             </button>
             <button type="button" aria-pressed={machine === "bombe"} onClick={() => switchMachine("bombe")}>
-              Bombe
+              <span className="machine-index">02</span> Bombe
             </button>
           </div>
           <nav className="crumbs" aria-label={zh ? "当前位置" : "Location"}>
@@ -174,8 +181,8 @@ export default function App() {
             type="button"
             className="icon-button"
             onClick={() => chooseTheme(theme === "light" ? "dark" : "light")}
-            aria-label={zh ? "切换明暗" : "Toggle light and dark"}
-            title={zh ? "切换明暗" : "Toggle light and dark"}
+            aria-label={zh ? "切换日光与暖灯" : "Switch daylight and lamplight"}
+            title={zh ? "切换日光与暖灯" : "Switch daylight and lamplight"}
           >
             {theme === "light" ? <IconMoon /> : <IconSun />}
           </button>
@@ -189,6 +196,7 @@ export default function App() {
             <IconInfo />
           </button>
         </header>
+        <div className="archive-footer" aria-hidden="true"><span>EST. IN CURIOSITY</span><span>{zh ? "转动齿轮，读懂秘密。" : "A closer look at the machinery of secrets."}</span><span>ENIGMA LAB / {machine === "enigma" ? "01" : "02"}</span></div>
         {!stage ? (
           <div className="fallback">
             {zh

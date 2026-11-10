@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { Exhibit } from "../../engine/Exhibit";
 import { materials } from "../../engine/materials";
+import { fasteners, seamRings } from "../../engine/fittings";
 import {
   STEP,
   annulusX,
@@ -165,6 +166,38 @@ function buildRotor(slot: Slot, type: RotorId): RotorRig {
   coreFrame.add(hub);
   hub.add(mesh(annulusX(0.72, 0.4, 3.05, 32), M.brass, {}));
 
+  // Turned shoulder, retaining screws and contact insulators stay with their
+  // own assembly during teardown. No decorative part covers a contact.
+  seamRings(
+    hub,
+    [
+      [-1.48, 0, 0],
+      [1.48, 0, 0],
+    ],
+    0.72,
+    0.045,
+    M.nickel,
+    "x",
+  );
+  for (const face of [-1, 1] as const) {
+    const x = face < 0 ? -1.46 : 1.16;
+    fasteners(
+      core,
+      [0, 1, 2].map((i) => {
+        const p = onCircle(x, 1.3, (i * Math.PI * 2) / 3 + Math.PI / 6);
+        return [p.x, p.y, p.z];
+      }),
+      M.brass,
+      M.darkSteel,
+      0.15,
+      [face, 0, 0],
+    );
+  }
+  core.add(
+    instanced(annulusX(0.19, 0.115, 0.05, 20), M.bakeliteBrown, 26, (i, d) => {
+      d.position.copy(onCircle(1.175, RC, i * STEP));
+    }),);
+
   const anchors = {
     thumb: anchor(thumb, [-1.2, 4.6, 1.6]),
     ring: anchor(ring, [-0.1, 3.6, 2.6]),
@@ -239,6 +272,75 @@ export function buildEnigma(initial: MachineConfig): EnigmaModel {
   wall(32, 1.5, 1, 0, 9.85, 13.5); // front, above the flap
   for (const x of [-15.3, 15.3]) caseBody.add(mesh(cylY(0.42, 0.3, 20), M.red, { pos: [x, 13.38, -12.6] }));
 
+  // Construction inventory: four base fixings, four corner shoes, two hinge
+  // leaves, ten hinge knuckles, a carry handle with two bolted saddles.
+  fasteners(
+    caseBody,
+    [
+      [-14.9, 1.02, -11.8],
+      [14.9, 1.02, -11.8],
+      [-14.9, 1.02, 11.8],
+      [14.9, 1.02, 11.8],
+    ],
+    M.brass,
+    M.darkSteel,
+    0.34,
+  );
+  for (const side of [-1, 1]) {
+    for (const z of [-12.8, 12.8]) {
+      caseBody.add(
+        mesh(roundedBox(0.12, 2.0, 1.7, 0.05), M.darkSteel, {
+          pos: [side * 17.04, 1.3, z],
+        }),
+      );
+      fasteners(
+        caseBody,
+        [[side * 17.11, 1.3, z]],
+        M.brass,
+        M.darkSteel,
+        0.15,
+        [side, 0, 0],
+      );
+    }
+  }
+  const handle = group("leather-carry-handle", [-17.08, 7.3, 0]);
+  for (const z of [-5.1, 5.1]) {
+    handle.add(
+      mesh(roundedBox(0.18, 2.0, 2.4, 0.16), M.darkSteel, {
+        pos: [-0.04, 0, z],
+      }),
+    );
+    handle.add(mesh(cylZ(0.24, 1.8, 18), M.nickel, { pos: [-0.55, 0, z] }));
+  }
+  const handleCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.55, 0, -5.1),
+    new THREE.Vector3(-1.45, 0, -3.8),
+    new THREE.Vector3(-1.65, 0, 0),
+    new THREE.Vector3(-1.45, 0, 3.8),
+    new THREE.Vector3(-0.55, 0, 5.1),
+  ]);
+  handle.add(
+    mesh(
+      new THREE.TubeGeometry(handleCurve, 28, 0.5, 8, false),
+      M.bakeliteBrown,
+      { edges: false },
+    ),
+  );
+  fasteners(
+    handle,
+    [
+      [-0.15, -0.6, -5.1],
+      [-0.15, 0.6, -5.1],
+      [-0.15, -0.6, 5.1],
+      [-0.15, 0.6, 5.1],
+    ],
+    M.brass,
+    M.darkSteel,
+    0.14,
+    [-1, 0, 0],
+  );
+  caseBody.add(handle);
+
   const lid = group("lid", [0, 13.3, -14]);
   caseGroup.add(reg("lid", lid) as THREE.Group);
   lid.rotation.x = -2.02;
@@ -249,18 +351,93 @@ export function buildEnigma(initial: MachineConfig): EnigmaModel {
   lidBox(34, 4.4, 1, 0, 2.2, 27.5);
   lidBox(1, 4.4, 26, -16.5, 2.2, 14);
   lidBox(1, 4.4, 26, 16.5, 2.2, 14);
-  lid.add(mesh(boxGeo(32, 0.12, 26), M.felt, { pos: [0, 3.45, 14] }));
+  const lidLining = mesh(boxGeo(32, 0.12, 26), M.felt, { pos: [0, 3.45, 14] });
+  // This lining is almost flush with the case: AO supplies contact shading,
+  // avoiding a biased shadow triangle on its thin backing.
+  lidLining.userData.receive = false;
+  lid.add(lidLining);
   lid.add(mesh(boxGeo(30, 0.1, 0.6), M.oakEnd, { pos: [0, 3.36, 15.5] })); // cable rail
+  for (const x of [-10.3, 10.3]) {
+    // Hinge leaves are fixed to their own half, so the original hinge motion
+    // still carries all its attached hardware correctly.
+    caseBody.add(
+      mesh(roundedBox(4.5, 2.3, 0.12, 0.08), M.brass, {
+        pos: [x, 12.1, -14.04],
+      }),
+    );
+    lid.add(
+      mesh(roundedBox(4.5, 2.2, 0.12, 0.08), M.brass, { pos: [x, 1.1, -0.05] }),
+    );
+    for (let k = 0; k < 5; k++) {
+      const host = k % 2 ? lid : caseBody;
+      host.add(
+        mesh(cylX(0.26, 0.84, 20), M.brass, {
+          pos: [x - 1.76 + k * 0.88, k % 2 ? 0 : 13.3, k % 2 ? 0 : -14],
+        }),
+      );
+    }
+    fasteners(
+      caseBody,
+      [
+        [x - 1.45, 11.5, -14.11],
+        [x + 1.45, 11.5, -14.11],
+      ],
+      M.nickel,
+      M.darkSteel,
+      0.16,
+      [0, 0, -1],
+    );
+    fasteners(
+      lid,
+      [
+        [x - 1.45, 1.5, -0.12],
+        [x + 1.45, 1.5, -0.12],
+      ],
+      M.nickel,
+      M.darkSteel,
+      0.16,
+      [0, 0, -1],
+    );
+  }
+  // Felt frame and plate fixings remain legible even when the lid fills the view.
+  for (const x of [-15.5, 15.5])
+    lid.add(mesh(boxGeo(0.25, 0.12, 24), M.oakEnd, { pos: [x, 3.32, 14] }));
+  for (const z of [2, 26])
+    lid.add(mesh(boxGeo(31.2, 0.12, 0.25), M.oakEnd, { pos: [0, 3.32, z] }));
   // Instruction plate, spare bulbs at 45°, two spare cables.
   const notes = new THREE.MeshStandardMaterial({
     map: plateTexture("lid-notes", "Gebrauchsanleitung", { w: 512, h: 160, bg: "#e7dfcc", fg: "#3b3226", size: 46 }),
     roughness: 0.9,
   });
-  lid.add(mesh(boxGeo(11, 0.06, 4.4), notes, { pos: [-5, 3.38, 8.5] }));
+  lid.add(mesh(boxGeo(11, 0.06, 4.4), M.paper, { pos: [-5, 3.38, 8.5] }));
+  // Printed paper uses its own 0…1 UV plane. The case's centimetre-scaled
+  // box UVs would clamp the lettering into a tiny unreadable mark.
+  const instructionFace = mesh(new THREE.PlaneGeometry(10.7, 4.1), notes, {
+    pos: [-5, 3.345, 8.5],
+    edges: false,
+  });
+  instructionFace.rotation.x = Math.PI / 2;
+  lid.add(instructionFace);
+  fasteners(
+    lid,
+    [
+      [-10, 3.34, 6.7],
+      [0, 3.34, 6.7],
+      [-10, 3.34, 10.3],
+      [0, 3.34, 10.3],
+    ],
+    M.brass,
+    M.darkSteel,
+    0.12,
+    [0, -1, 0],);
   for (let i = 0; i < 5; i++) {
     const b = mesh(cylY(0.45, 1.3, 16), M.bulb, { pos: [6 + i * 1.6, 3.0, 8.5] });
     b.rotation.x = Math.PI / 4;
     lid.add(b);
+    const socket = group("spare-bulb-socket", [6 + i * 1.6, 3.0, 8.5]);
+    socket.rotation.x = Math.PI / 4;
+    socket.add(mesh(cylY(0.5, 0.35, 24), M.brass, { pos: [0, 0.48, 0] }));
+    lid.add(socket);
   }
   for (const z of [17.6, 18.6]) lid.add(mesh(roundedBox(9, 0.36, 0.42, 0.15), M.cable, { pos: [-6, 3.2, z] }));
   anchors.lid = {
@@ -273,6 +450,42 @@ export function buildEnigma(initial: MachineConfig): EnigmaModel {
   caseGroup.add(reg("flap", flap) as THREE.Group);
   flap.add(mesh(roundedBox(32, 7.7, 1, 0.18, 2), M.oak, { pos: [0, 3.85, -0.5] }));
   flap.add(mesh(roundedBox(3.2, 0.5, 0.35, 0.12), M.nickel, { pos: [0, 6.9, 0.1] }));
+  flap.add(
+    mesh(roundedBox(2.2, 2.3, 0.12, 0.18), M.darkSteel, {
+      pos: [0, 6.1, 0.08],
+    }),
+  );
+  flap.add(
+    mesh(roundedBox(0.7, 1.25, 0.16, 0.12), M.brass, { pos: [0, 6.25, 0.23] }),
+  );
+  fasteners(
+    flap,
+    [
+      [-0.76, 5.45, 0.15],
+      [0.76, 5.45, 0.15],
+    ],
+    M.brass,
+    M.darkSteel,
+    0.15,
+    [0, 0, 1],
+  );
+  for (const x of [-11, 11]) {
+    flap.add(
+      mesh(roundedBox(3, 1.7, 0.1, 0.08), M.brass, { pos: [x, 0.85, 0.05] }),
+    );
+    flap.add(mesh(cylX(0.2, 3.2, 20), M.brass, { pos: [x, 0, 0] }));
+    fasteners(
+      flap,
+      [
+        [x - 0.9, 1, 0.11],
+        [x + 0.9, 1, 0.11],
+      ],
+      M.nickel,
+      M.darkSteel,
+      0.14,
+      [0, 0, 1],
+    );
+  }
   anchors.case = {
     lid: anchor(lid, [10, 4.4, 26]),
     flap: anchor(flap, [-8, 4, 0.1]),
@@ -326,6 +539,58 @@ export function buildEnigma(initial: MachineConfig): EnigmaModel {
   const lever = mesh(roundedBox(0.7, 0.5, 3.2, 0.2), M.nickel, { pos: [-11.4, 13.3, -7.8] });
   lever.rotation.y = 0.35;
   chassis.add(lever);
+  fasteners(
+    chassis,
+    [
+      [-14.9, 9.01, 5.3],
+      [14.9, 9.01, 5.3],
+      [-14.9, 9.01, 12.3],
+      [14.9, 9.01, 12.3],
+      [-14.9, 13.01, -11.8],
+      [14.9, 13.01, -11.8],
+      [-14.9, 13.01, 2.8],
+      [14.9, 13.01, 2.8],
+    ],
+    M.nickel,
+    M.darkSteel,
+    0.2,
+  );
+  fasteners(
+    chassis,
+    [
+      [8.5, 13.31, -10.9],
+      [13.9, 13.31, -10.9],
+    ],
+    M.nickel,
+    M.darkSteel,
+    0.15,
+  );
+  const makerPlate = mesh(
+    new THREE.PlaneGeometry(5.6, 1.0),
+    new THREE.MeshStandardMaterial({
+      map: plateTexture("enigma-maker", "ENIGMA", {
+        w: 640,
+        h: 120,
+        bg: "#b29b65",
+        fg: "#2c271b",
+        size: 64,
+      }),
+      roughness: 0.64,
+      metalness: 0.4,
+    }),
+    { pos: [0, 10.7, 4.41], edges: false },
+  );
+  chassis.add(makerPlate);
+  fasteners(
+    chassis,
+    [
+      [-2.55, 10.7, 4.42],
+      [2.55, 10.7, 4.42],
+    ],
+    M.brass,
+    M.darkSteel,
+    0.1,
+    [0, 0, 1],);
   anchors.chassis = {
     well: anchor(chassis, [-2.7, 12.9, -4.7]),
     battery: anchor(chassis, [12.6, 13.3, -6.8]),
@@ -338,6 +603,18 @@ export function buildEnigma(initial: MachineConfig): EnigmaModel {
   enigma.add(reg("rotor-cover", cover) as THREE.Group);
   cover.add(mesh(roundedBox(14.6, 0.25, 8.5, 0.1), M.crackle, { pos: [0, -0.125, 4.25], edgeAngle: 20 }));
   cover.add(mesh(cylX(0.22, 14.2, 16), M.steel, { pos: [0, -0.05, 0] })); // hinge pin
+  fasteners(
+    cover,
+    [
+      [-6.7, 0.01, 1.0],
+      [6.7, 0.01, 1.0],
+      [-6.7, 0.01, 7.8],
+      [6.7, 0.01, 7.8],
+    ],
+    M.nickel,
+    M.darkSteel,
+    0.14,
+  );
   const windowTextures: Record<Slot, { tex: THREE.CanvasTexture; ctx: CanvasRenderingContext2D }> = {} as never;
   anchors["rotor-cover"] = {};
   const coverZ = AXIS_Z + 12.9;
@@ -358,6 +635,15 @@ export function buildEnigma(initial: MachineConfig): EnigmaModel {
     win.rotation.x = -Math.PI / 2;
     win.position.set(x - 0.15, 0.07, coverZ);
     cover.add(win);
+    fasteners(
+      cover,
+      [
+        [x - 0.77, 0.065, coverZ],
+        [x + 0.47, 0.065, coverZ],
+      ],
+      M.brass,
+      M.darkSteel,
+      0.075);
     // Thumbwheel slot.
     cover.add(mesh(boxGeo(0.8, 0.06, 4.2), M.rubber, { pos: [x - 1.18, 0.03, coverZ] }));
     anchors["rotor-cover"][`window-${slot}`] = anchor(cover, [x - 0.15, 0.1, coverZ]);
@@ -479,6 +765,17 @@ export function buildEnigma(initial: MachineConfig): EnigmaModel {
   const bulbs = group("bulbs");
   lampboard.add(reg("bulbs", bulbs) as THREE.Group);
   lampCover.add(mesh(roundedBox(26.2, 0.2, 8.3, 0.08), M.crackle, { pos: [0, 13.1, 0], edgeAngle: 20 }));
+  fasteners(
+    lampCover,
+    [
+      [-12.6, 13.21, -3.6],
+      [12.6, 13.21, -3.6],
+      [-12.6, 13.21, 3.6],
+      [12.6, 13.21, 3.6],
+    ],
+    M.nickel,
+    M.darkSteel,
+    0.16,);
   const lampWindows = new Map<string, { mat: THREE.MeshStandardMaterial; bulb: THREE.MeshPhysicalMaterial }>();
   const lampPos = new Map<string, THREE.Vector3>();
   ROWS.forEach((row, r) => {
@@ -569,11 +866,32 @@ export function buildEnigma(initial: MachineConfig): EnigmaModel {
     lever: anchor(keyboard, [layout(2, 8, 2.75), 6.5, 11.1 - 2.6]),
     contact: anchor(keyboard, [layout(2, 7, 2.75), 5.9, 11.3]),
   };
+  const keyCentres: [number, number, number][] = ROWS.flatMap((row, r) =>
+    [...row].map((_, i): [number, number, number] => [
+      layout(r, i, 2.75),
+      9.08,
+      6.1 + r * 2.5,
+    ]),
+  );
+  // The guide collars sit on the keyboard deck; stems pass through their bore.
+  seamRings(keyboard, keyCentres, 0.3, 0.075, M.darkSteel, "y");
 
   /* ---------------- plugboard ---------------- */
   const plugboard = group("plugboard");
   enigma.add(reg("plugboard", plugboard) as THREE.Group);
   plugboard.add(mesh(roundedBox(29.4, 6.9, 0.32, 0.1), M.crackle, { pos: [0, 5.1, 12.75], edgeAngle: 20 }));
+  fasteners(
+    plugboard,
+    [
+      [-14, 2.1, 12.92],
+      [14, 2.1, 12.92],
+      [-14, 8.1, 12.92],
+      [14, 8.1, 12.92],
+    ],
+    M.nickel,
+    M.darkSteel,
+    0.19,
+    [0, 0, 1]);
   const socketPos = new Map<string, THREE.Vector3>();
   const holeMat = new THREE.MeshBasicMaterial({ color: "#060606" });
   ROWS.forEach((row, r) => {

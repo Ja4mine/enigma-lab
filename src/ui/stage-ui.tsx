@@ -1,53 +1,144 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import * as THREE from "three";
 import type { Stage } from "../engine/Stage";
 import type { Exhibit, FeatureMeta, Step } from "../engine/Exhibit";
 import { useLang, type Text } from "../i18n";
 import { IconNext, IconPause, IconPlay, IconPrev, IconReset } from "./icons";
+import { MousePointer2, Move, ZoomIn } from "lucide-react";
 
 /** Hosts the shared WebGL canvas plus any overlays rendered as children. */
 export function StageView({
   stage,
   sheet = false,
+  inspectionHint = true,
   children,
 }: {
   stage: Stage;
   sheet?: boolean;
+  inspectionHint?: boolean;
   children?: ReactNode;
 }) {
+  const { lang } = useLang();
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     if (ref.current) stage.mount(ref.current);
   }, [stage]);
   return (
-    <section ref={ref} className={sheet ? "stage is-sheet" : "stage"} aria-label="3D view">
+    <section
+      ref={ref}
+      className={sheet ? "stage is-sheet" : "stage"}
+      aria-label={
+        lang === "zh"
+          ? "三维组件检视工作台"
+          : "Three-dimensional component inspection bench"
+      }
+    >
       {children}
+      {!sheet && inspectionHint && (
+        <div
+          className="bench-hints"
+          aria-label={lang === "zh" ? "检视操作提示" : "Inspection controls"}
+        >
+          <span>
+            <Move size={12} aria-hidden="true" />
+            {lang === "zh" ? "拖动旋转" : "Drag to orbit"}
+          </span>
+          <span>
+            <ZoomIn size={12} aria-hidden="true" />
+            {lang === "zh" ? "滚轮缩放" : "Scroll to zoom"}
+          </span>
+          <span className="bench-hint-primary">
+            <MousePointer2 size={12} aria-hidden="true" />
+            {lang === "zh" ? "点击检视组件" : "Click to inspect"}
+          </span>
+          <span className="bench-hint-key">
+            <kbd>esc</kbd>
+            {lang === "zh" ? "返回上一级" : "Back one level"}
+          </span>
+        </div>
+      )}
     </section>
   );
 }
 
 /** Name of the part under the pointer, so it is clear what a click will open. */
-export function HoverTag({ stage, exhibit, resolve }: { stage: Stage; exhibit: Exhibit; resolve: (id: string) => string }) {
-  const { t } = useLang();
+export function HoverTag({
+  stage,
+  exhibit,
+  resolve,
+}: {
+  stage: Stage;
+  exhibit: Exhibit;
+  resolve: (id: string) => string;
+}) {
+  const { t, lang } = useLang();
   const el = useRef<HTMLDivElement>(null);
-  const [name, setName] = useState("");
+  const pointer = useRef({ x: 0, y: 0 });
+  const [record, setRecord] = useState({ name: "", number: "" });
+  const place = () => {
+    const tag = el.current;
+    if (!tag) return;
+    const { x, y } = pointer.current;
+    // Keep the label inside the canvas even when a component sits near an edge.
+    const left = Math.max(
+      10,
+      Math.min(x + 18, stage.width - tag.offsetWidth - 10),
+    );
+    const top = Math.max(
+      10,
+      Math.min(y + 20, stage.height - tag.offsetHeight - 10),
+    );
+    tag.style.transform = `translate(${left}px, ${top}px)`;
+  };
+  useLayoutEffect(place, [record, stage, lang]);
   useEffect(
     () =>
       stage.onPointerHover((part, x, y) => {
         const meta = part ? exhibit.meta(resolve(part)) : null;
-        setName(meta ? t(meta.name) : "");
-        if (el.current) el.current.style.transform = `translate(${x + 14}px, ${y + 16}px)`;
+        const name = meta ? t(meta.name) : "";
+        const number = meta?.number ?? "";
+        setRecord((previous) =>
+          previous.name === name && previous.number === number
+            ? previous
+            : { name, number },
+        );
+        pointer.current = { x, y };
+        place();
       }),
     [stage, exhibit, resolve, t],
   );
   return (
-    <div ref={el} className="hover-tag" hidden={!name} aria-hidden="true">
-      {name}
+    <div
+      ref={el}
+      className="hover-tag"
+      hidden={!record.name}
+      aria-hidden="true"
+    >
+      <span className="hover-tag-number">{record.number}</span>
+      <strong>{record.name}</strong>
+      <span className="hover-tag-action">
+        {lang === "zh" ? "点击检视" : "Click to inspect"}
+        <IconNext size={12} />
+      </span>
     </div>
   );
 }
 
-export function StageCaption({ kicker, title, text }: { kicker?: ReactNode; title: string; text?: string }) {
+export function StageCaption({
+  kicker,
+  title,
+  text,
+}: {
+  kicker?: ReactNode;
+  title: string;
+  text?: string;
+}) {
   return (
     <div className="stage-caption" aria-live="polite">
       {kicker && <div className="kicker">{kicker}</div>}
@@ -94,13 +185,21 @@ export function Callouts({
   const items: CalloutItem[] = [
     ...(partId ? exhibit.featureAnchors(partId) : []),
     ...extra,
-  ].map(({ feature, anchor }, i) => ({ id: feature.id, n: i + 1, label: feature.label, anchor }));
+  ]
+    .map(({ feature, anchor }, i) => ({
+      id: feature.id,
+      n: i + 1,
+      label: feature.label,
+      anchor,
+    }))
+    // A requested detail remains discoverable when the overall labels are off.
+    .filter((item) => visible || item.id === hot);
   const labels = useRef(new Map<string, HTMLButtonElement>());
   const svg = useRef<SVGSVGElement>(null);
   const key = items.map((i) => i.id).join("|") + lang + partId;
 
   useEffect(() => {
-    if (!visible || !items.length) {
+    if (!items.length) {
       if (svg.current) svg.current.innerHTML = "";
       return;
     }
@@ -115,10 +214,17 @@ export function Callouts({
         const p = stage.project(v);
         return { item, ...p };
       });
-      const shown = pts.filter((p) => p.visible && p.x > -20 && p.x < W + 20 && p.y > -20 && p.y < H + 20);
+      const shown = pts.filter(
+        (p) =>
+          p.visible && p.x > -20 && p.x < W + 20 && p.y > -20 && p.y < H + 20,
+      );
       if (!shown.length) {
         if (svg.current) svg.current.innerHTML = "";
-        for (const el of labels.current.values()) el.style.opacity = "0";
+        for (const el of labels.current.values()) {
+          el.style.opacity = "0";
+          el.style.visibility = "hidden";
+          el.tabIndex = -1;
+        }
         return;
       }
       const cx = shown.reduce((s, p) => s + p.x, 0) / shown.length;
@@ -126,16 +232,22 @@ export function Callouts({
         maxX = Math.max(...shown.map((p) => p.x));
       const narrow = W < 560;
       const sides = { left: [] as typeof shown, right: [] as typeof shown };
-      for (const p of shown) (p.x < cx || (narrow && sides.left.length < sides.right.length) ? sides.left : sides.right).push(p);
+      for (const p of shown)
+        (p.x < cx || (narrow && sides.left.length < sides.right.length)
+          ? sides.left
+          : sides.right
+        ).push(p);
       let paths = "";
       for (const side of ["left", "right"] as const) {
         const list = sides[side].sort((a, b) => a.y - b.y);
         const gap = 30;
         const ys = list.map((p) => Math.min(bottom, Math.max(top, p.y)));
-        for (let i = 1; i < ys.length; i++) ys[i] = Math.max(ys[i], ys[i - 1] + gap);
+        for (let i = 1; i < ys.length; i++)
+          ys[i] = Math.max(ys[i], ys[i - 1] + gap);
         const over = ys.length ? ys[ys.length - 1] - bottom : 0;
         if (over > 0) for (let i = 0; i < ys.length; i++) ys[i] -= over;
-        for (let i = ys.length - 2; i >= 0; i--) ys[i] = Math.min(ys[i], ys[i + 1] - gap);
+        for (let i = ys.length - 2; i >= 0; i--)
+          ys[i] = Math.min(ys[i], ys[i + 1] - gap);
         list.forEach((p, i) => {
           const el = labels.current.get(p.item.id);
           if (!el) return;
@@ -152,6 +264,8 @@ export function Callouts({
             elbow = Math.max(p.x + 12, edge - 18);
           }
           el.style.opacity = "1";
+          el.style.visibility = "visible";
+          el.tabIndex = 0;
           el.style.transform = `translate(${x.toFixed(1)}px, ${(y - 12).toFixed(1)}px)`;
           paths += `<path class="leader" d="M${p.x.toFixed(1)} ${p.y.toFixed(1)} L${elbow.toFixed(1)} ${y.toFixed(1)} L${edge.toFixed(1)} ${y.toFixed(1)}"/>`;
           paths += `<circle class="dot-ring" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4"/><circle class="dot" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="1.8"/>`;
@@ -160,7 +274,11 @@ export function Callouts({
       for (const p of pts)
         if (!shown.includes(p)) {
           const el = labels.current.get(p.item.id);
-          if (el) el.style.opacity = "0";
+          if (el) {
+            el.style.opacity = "0";
+            el.style.visibility = "hidden";
+            el.tabIndex = -1;
+          }
         }
       if (svg.current) svg.current.innerHTML = paths;
     };
@@ -173,7 +291,7 @@ export function Callouts({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, key, visible]);
 
-  if (!visible || !items.length) return null;
+  if (!items.length) return null;
   return (
     <div className="callouts">
       <svg ref={svg} aria-hidden="true" />
@@ -182,15 +300,19 @@ export function Callouts({
           key={item.id}
           type="button"
           className={`callout-label${hot === item.id ? " hot" : ""}`}
-          style={{ opacity: 0 }}
+          style={{ opacity: 0, visibility: "hidden" }}
+          tabIndex={-1}
           ref={(el) => {
             if (el) labels.current.set(item.id, el);
             else labels.current.delete(item.id);
           }}
-          onMouseEnter={() => onHot(item.id)}
-          onMouseLeave={() => onHot(null)}
+          onPointerEnter={() => onHot(item.id)}
+          onPointerLeave={(event) => {
+            if (document.activeElement !== event.currentTarget) onHot(null);
+          }}
           onFocus={() => onHot(item.id)}
           onBlur={() => onHot(null)}
+          onClick={() => onHot(item.id)}
         >
           <span className="balloon">{item.n}</span>
           <span className="callout-text">{t(item.label)}</span>
@@ -271,18 +393,32 @@ export function Track({
           onScrub(valueAt(e.clientX), false);
         }}
         onPointerMove={(e) => {
-          if (!onScrub || !(e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) return;
+          if (
+            !onScrub ||
+            !(e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)
+          )
+            return;
           onScrub(valueAt(e.clientX), false);
         }}
         onPointerUp={(e) => {
-          if (!onScrub || !(e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) return;
+          if (
+            !onScrub ||
+            !(e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)
+          )
+            return;
           onScrub(valueAt(e.clientX), true);
         }}
       >
         <div className="line" />
-        <div className="fill" style={{ width: `calc((100% - 18px) * ${progress / n})` }} />
+        <div
+          className="fill"
+          style={{ width: `calc((100% - 18px) * ${progress / n})` }}
+        />
         {Array.from({ length: n + 1 }, (_, i) => {
-          const title = i === 0 ? (firstLabel ?? (lang === "zh" ? "整机" : "Assembled")) : t(steps[i - 1].title);
+          const title =
+            i === 0
+              ? (firstLabel ?? (lang === "zh" ? "整机" : "Assembled"))
+              : t(steps[i - 1].title);
           const near = i === current || i === hover;
           return (
             <button
@@ -304,15 +440,32 @@ export function Track({
       </div>
       <div className="buttons">
         <span className="count">
-          {String(current + numbering).padStart(2, "0")}/{String(n + numbering).padStart(2, "0")}
+          {String(current + numbering).padStart(2, "0")}/
+          {String(n + numbering).padStart(2, "0")}
         </span>
         {onPlay && (
           <button
             type="button"
             className="icon-button"
             onClick={onPlay}
-            aria-label={playing ? (lang === "zh" ? "暂停" : "Pause") : lang === "zh" ? "自动演示" : "Play through"}
-            title={playing ? (lang === "zh" ? "暂停" : "Pause") : lang === "zh" ? "自动演示" : "Play through"}
+            aria-label={
+              playing
+                ? lang === "zh"
+                  ? "暂停"
+                  : "Pause"
+                : lang === "zh"
+                  ? "自动演示"
+                  : "Play through"
+            }
+            title={
+              playing
+                ? lang === "zh"
+                  ? "暂停"
+                  : "Pause"
+                : lang === "zh"
+                  ? "自动演示"
+                  : "Play through"
+            }
           >
             {playing ? <IconPause /> : <IconPlay />}
           </button>
@@ -333,7 +486,11 @@ export function Track({
 }
 
 /** Seeks an exhibit's disassembly progress with an eased animation. */
-export function useProcedure(stage: Stage, exhibit: Exhibit, onArrive?: (step: number) => void) {
+export function useProcedure(
+  stage: Stage,
+  exhibit: Exhibit,
+  onArrive?: (step: number) => void,
+) {
   const [progress, setProgress] = useState(exhibit.progress);
   const cancel = useRef<(() => void) | null>(null);
   const arrive = useRef(onArrive);
